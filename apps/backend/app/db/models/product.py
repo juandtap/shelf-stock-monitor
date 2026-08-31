@@ -1,11 +1,15 @@
 import uuid
+from typing import TYPE_CHECKING
 
 from sqlalchemy import String
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 from app.db.models.mixins import TimestampMixin
+
+if TYPE_CHECKING:
+    from app.db.models.stock_observation import StockObservation
 
 
 class Product(TimestampMixin, Base):
@@ -28,4 +32,10 @@ class Product(TimestampMixin, Base):
         nullable=False,
         unique=True,
         index=True,
+    )
+
+    stock_observations: Mapped[list["StockObservation"]] = relationship(
+        back_populates="product",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )
