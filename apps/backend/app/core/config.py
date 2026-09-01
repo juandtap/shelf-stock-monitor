@@ -1,7 +1,7 @@
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import SecretStr
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -17,6 +17,13 @@ class Settings(BaseSettings):
     database_name: str = "shelf_stock"
     database_user: str = "shelf_stock"
     database_password: SecretStr
+
+    monitoring_enabled: bool = False
+    monitoring_interval_minutes: int = Field(
+        default=30,
+        ge=1,
+    )
+    monitoring_image_path: str | None = None
 
     model_config = SettingsConfigDict(
         env_file=".env",

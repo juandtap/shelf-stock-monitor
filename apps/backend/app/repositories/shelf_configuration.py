@@ -58,3 +58,16 @@ class ShelfConfigurationRepository:
         )
 
         return list(self.db.scalars(statement).all())
+
+    def get_active(self) -> list[ShelfConfiguration]:
+        statement = (
+            select(ShelfConfiguration)
+            .where(
+                ShelfConfiguration.is_active.is_(True),
+            )
+            .order_by(
+                ShelfConfiguration.created_at.desc(),
+            )
+        )
+
+        return list(self.db.scalars(statement).all())

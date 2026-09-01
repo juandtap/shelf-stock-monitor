@@ -773,3 +773,6 @@ StockObservation (PostgreSQL)
 ```
 
 At this stage monitoring is triggered manually through the API. Periodic execution and automatic image acquisition will be introduced in a later milestone.
+
+
+Note. Monitoring cycle added with 1 min. 
