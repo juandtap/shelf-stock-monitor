@@ -528,3 +528,248 @@ Sí deben versionarse:
 - código fuente
 - tests
 - documentación
+
+## Shelf Monitoring
+
+The project currently supports an end-to-end shelf monitoring workflow using an OpenCV ROI-based detector.
+
+The monitoring pipeline is:
+
+```text
+HTTP Request
+    ↓
+ShelfConfiguration
+    ↓
+StockDetectorFactory
+    ↓
+OpenCVROIDetector
+    ↓
+StockDetectionService
+    ↓
+StockObservationService
+    ↓
+PostgreSQL
+```
+
+A shelf configuration defines:
+
+- Camera
+- Product
+- Detector type
+- Empty shelf reference image
+- Detection threshold
+- Regions of interest (ROIs)
+
+Each ROI represents one physical product slot on the shelf.
+
+### Demo Dataset
+
+The current controlled dataset contains a shelf with four slots:
+
+```text
+data/
+├── references/
+│   └── shelf_01_empty.png
+└── samples/
+    ├── shelf_01_full.png
+    ├── shelf_01_75.png
+    ├── shelf_01_50.png
+    ├── shelf_01_25.png
+    └── shelf_01_empty.png
+```
+
+Ground truth:
+
+| Image | Units | Stock |
+| --- | ---: | ---: |
+| `shelf_01_empty.png` | 0 / 4 | 0% |
+| `shelf_01_25.png` | 1 / 4 | 25% |
+| `shelf_01_50.png` | 2 / 4 | 50% |
+| `shelf_01_75.png` | 3 / 4 | 75% |
+| `shelf_01_full.png` | 4 / 4 | 100% |
+
+### OpenCV ROI Baseline
+
+The first detector implementation uses classical computer vision.
+
+For every configured ROI:
+
+1. Extract the same region from the empty reference image.
+2. Extract the region from the current shelf image.
+3. Convert both regions to grayscale.
+4. Calculate their absolute pixel difference using OpenCV.
+5. Calculate the mean difference score.
+6. Mark the slot as occupied when the score exceeds the configured threshold.
+
+The current controlled dataset uses:
+
+```text
+difference_threshold = 20.0
+```
+
+During baseline evaluation, the detector produced:
+
+| Image | Expected | Detected | Absolute Error |
+| --- | ---: | ---: | ---: |
+| `shelf_01_empty.png` | 0 | 0 | 0 |
+| `shelf_01_25.png` | 1 | 1 | 0 |
+| `shelf_01_50.png` | 2 | 2 | 0 |
+| `shelf_01_75.png` | 3 | 3 | 0 |
+| `shelf_01_full.png` | 4 | 4 | 0 |
+
+```text
+MAE = 0.00 units
+```
+
+This result represents a controlled baseline and should not be interpreted as real-world model accuracy. The generated images can contain small differences in lighting, geometry, and background, while real camera environments introduce additional variation.
+
+Future experiments will compare this classical approach against ML-based detectors using the same ground-truth evaluation strategy.
+
+### ROI Visualization
+
+ROIs can be visually inspected before running the detector:
+
+```bash
+cd apps/backend
+uv run python scripts/preview_rois.py
+```
+
+The generated preview is stored under:
+
+```text
+data/generated/shelf_01_rois.png
+```
+
+This is useful for verifying that each ROI corresponds to the intended physical shelf slot.
+
+### Evaluate the OpenCV Detector
+
+Run the controlled evaluation with:
+
+```bash
+cd apps/backend
+uv run python scripts/evaluate_opencv_roi.py
+```
+
+The script reports:
+
+- Expected units
+- Detected units
+- Difference score for every ROI
+- Mean Absolute Error (MAE)
+
+Example:
+
+```text
+OpenCV ROI evaluation
+----------------------------------------------------------------------------------------------
+Image                   Expected  Detected     ROI 1     ROI 2     ROI 3     ROI 4
+----------------------------------------------------------------------------------------------
+shelf_01_empty.png             0         0      0.00      0.00      0.00      0.00
+shelf_01_25.png                1         1     24.84     17.36     13.32     13.28
+shelf_01_50.png                2         2     24.29     24.26     10.96      6.40
+shelf_01_75.png                3         3     24.74     24.70     22.15      6.96
+shelf_01_full.png              4         4     25.12     25.42     23.65     23.47
+----------------------------------------------------------------------------------------------
+MAE: 0.00 units
+Difference threshold: 20.00
+```
+
+### Create a Shelf Configuration
+
+A shelf configuration must exist before running the monitoring pipeline.
+
+Example:
+
+```bash
+curl -X POST \
+  "http://localhost:8000/shelf-configurations" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "camera_id": "<CAMERA_ID>",
+    "product_id": "<PRODUCT_ID>",
+    "detector_type": "opencv_roi",
+    "reference_image_path": "../../data/references/shelf_01_empty.png",
+    "detector_config": {
+      "difference_threshold": 20.0,
+      "regions": [
+        {
+          "x": 20,
+          "y": 94,
+          "width": 378,
+          "height": 639
+        },
+        {
+          "x": 438,
+          "y": 94,
+          "width": 378,
+          "height": 639
+        },
+        {
+          "x": 856,
+          "y": 94,
+          "width": 378,
+          "height": 639
+        },
+        {
+          "x": 1274,
+          "y": 94,
+          "width": 378,
+          "height": 639
+        }
+      ]
+    }
+  }'
+```
+
+Use the ROI coordinates validated for the actual reference image.
+
+### Run Shelf Monitoring
+
+Once a configuration exists, manually trigger a monitoring cycle:
+
+```bash
+curl -X POST \
+  "http://localhost:8000/shelf-configurations/<CONFIGURATION_ID>/monitor" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "image_path": "../../data/samples/shelf_01_50.png"
+  }'
+```
+
+For the 50% sample, the expected result is:
+
+```json
+{
+  "camera_id": "<CAMERA_ID>",
+  "product_id": "<PRODUCT_ID>",
+  "detected_units": 2,
+  "shelf_capacity": 4,
+  "stock_percentage": 50.0,
+  "detector_name": "opencv_roi"
+}
+```
+
+The resulting `StockObservation` is persisted in PostgreSQL and can be retrieved with:
+
+```bash
+curl http://localhost:8000/stock-observations
+```
+
+This validates the current end-to-end workflow:
+
+```text
+Shelf image
+    ↓
+ShelfConfiguration (PostgreSQL)
+    ↓
+StockDetectorFactory
+    ↓
+OpenCV ROI detection
+    ↓
+Stock calculation
+    ↓
+StockObservation (PostgreSQL)
+```
+
+At this stage monitoring is triggered manually through the API. Periodic execution and automatic image acquisition will be introduced in a later milestone.

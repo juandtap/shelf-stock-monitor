@@ -1,10 +1,14 @@
+import uuid
+
 from sqlalchemy.orm import Session
 
 from app.db.models.shelf_configuration import ShelfConfiguration
+from app.db.models.stock_observation import StockObservation
 from app.repositories.camera import CameraRepository
 from app.repositories.product import ProductRepository
 from app.repositories.shelf_configuration import ShelfConfigurationRepository
 from app.schemas.shelf_configuration import ShelfConfigurationCreate
+from app.services.shelf_monitoring import ShelfMonitoringService
 
 
 class ShelfConfigurationCameraNotFoundError(Exception):
@@ -19,8 +23,13 @@ class ShelfConfigurationAlreadyExistsError(Exception):
     pass
 
 
+class ShelfConfigurationNotFoundError(Exception):
+    pass
+
+
 class ShelfConfigurationService:
     def __init__(self, db: Session) -> None:
+        self._db = db
         self._camera_repository = CameraRepository(db)
         self._product_repository = ProductRepository(db)
         self._configuration_repository = ShelfConfigurationRepository(db)
@@ -53,4 +62,26 @@ class ShelfConfigurationService:
 
         return self._configuration_repository.create(
             configuration_data,
+        )
+
+    def monitor(
+        self,
+        *,
+        configuration_id: uuid.UUID,
+        image_path: str,
+    ) -> StockObservation:
+        configuration = self._configuration_repository.get_by_id(
+            configuration_id,
+        )
+
+        if configuration is None:
+            raise ShelfConfigurationNotFoundError
+
+        monitoring_service = ShelfMonitoringService(
+            db=self._db,
+        )
+
+        return monitoring_service.process(
+            configuration=configuration,
+            image_path=image_path,
         )
