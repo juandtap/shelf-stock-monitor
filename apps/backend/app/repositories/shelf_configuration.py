@@ -8,7 +8,10 @@ from app.schemas.shelf_configuration import ShelfConfigurationCreate
 
 
 class ShelfConfigurationRepository:
-    def __init__(self, db: Session) -> None:
+    def __init__(
+        self,
+        db: Session,
+    ) -> None:
         self.db = db
 
     def create(
@@ -21,6 +24,7 @@ class ShelfConfigurationRepository:
             detector_type=configuration_data.detector_type,
             reference_image_path=configuration_data.reference_image_path,
             detector_config=configuration_data.detector_config.model_dump(),
+            low_stock_threshold=configuration_data.low_stock_threshold,
         )
 
         self.db.add(configuration)
@@ -52,14 +56,18 @@ class ShelfConfigurationRepository:
 
         return self.db.scalar(statement)
 
-    def get_all(self) -> list[ShelfConfiguration]:
+    def get_all(
+        self,
+    ) -> list[ShelfConfiguration]:
         statement = select(ShelfConfiguration).order_by(
             ShelfConfiguration.created_at.desc(),
         )
 
         return list(self.db.scalars(statement).all())
 
-    def get_active(self) -> list[ShelfConfiguration]:
+    def get_active(
+        self,
+    ) -> list[ShelfConfiguration]:
         statement = (
             select(ShelfConfiguration)
             .where(

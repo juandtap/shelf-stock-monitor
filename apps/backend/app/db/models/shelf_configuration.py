@@ -1,7 +1,14 @@
 import uuid
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import Boolean, ForeignKey, String, UniqueConstraint
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    Float,
+    ForeignKey,
+    String,
+    UniqueConstraint,
+)
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -15,11 +22,16 @@ if TYPE_CHECKING:
 
 class ShelfConfiguration(TimestampMixin, Base):
     __tablename__ = "shelf_configurations"
+
     __table_args__ = (
         UniqueConstraint(
             "camera_id",
             "product_id",
             name="uq_shelf_configurations_camera_product",
+        ),
+        CheckConstraint(
+            "low_stock_threshold >= 0 AND low_stock_threshold <= 100",
+            name="ck_shelf_configurations_low_stock_threshold",
         ),
     )
 
@@ -31,14 +43,20 @@ class ShelfConfiguration(TimestampMixin, Base):
 
     camera_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("cameras.id", ondelete="CASCADE"),
+        ForeignKey(
+            "cameras.id",
+            ondelete="CASCADE",
+        ),
         nullable=False,
         index=True,
     )
 
     product_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("products.id", ondelete="CASCADE"),
+        ForeignKey(
+            "products.id",
+            ondelete="CASCADE",
+        ),
         nullable=False,
         index=True,
     )
@@ -57,6 +75,13 @@ class ShelfConfiguration(TimestampMixin, Base):
         JSONB,
         nullable=False,
         default=dict,
+    )
+
+    low_stock_threshold: Mapped[float] = mapped_column(
+        Float,
+        nullable=False,
+        default=50.0,
+        server_default="50",
     )
 
     is_active: Mapped[bool] = mapped_column(

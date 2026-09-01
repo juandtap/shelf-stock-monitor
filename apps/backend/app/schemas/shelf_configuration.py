@@ -14,18 +14,29 @@ class ROIConfiguration(BaseModel):
 
 class OpenCVROIConfiguration(BaseModel):
     difference_threshold: float = Field(ge=0)
-    regions: list[ROIConfiguration] = Field(min_length=1)
+    regions: list[ROIConfiguration] = Field(
+        min_length=1,
+    )
 
 
 class ShelfConfigurationCreate(BaseModel):
     camera_id: uuid.UUID
     product_id: uuid.UUID
+
     detector_type: Literal["opencv_roi"]
+
     reference_image_path: str = Field(
         min_length=1,
         max_length=500,
     )
+
     detector_config: OpenCVROIConfiguration
+
+    low_stock_threshold: float = Field(
+        default=50.0,
+        ge=0,
+        le=100,
+    )
 
     @model_validator(mode="after")
     def validate_detector_requirements(
@@ -38,14 +49,20 @@ class ShelfConfigurationCreate(BaseModel):
 
 
 class ShelfConfigurationResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(
+        from_attributes=True,
+    )
 
     id: uuid.UUID
     camera_id: uuid.UUID
     product_id: uuid.UUID
+
     detector_type: str
     reference_image_path: str | None
     detector_config: OpenCVROIConfiguration
+
+    low_stock_threshold: float
     is_active: bool
+
     created_at: datetime
     updated_at: datetime

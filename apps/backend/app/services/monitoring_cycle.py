@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.db.models.stock_observation import StockObservation
 from app.repositories.shelf_configuration import ShelfConfigurationRepository
 from app.services.shelf_monitoring import ShelfMonitoringService
+from app.services.stock_alert import StockAlertService
 
 
 class MonitoringImagePathNotFoundError(Exception):
@@ -14,9 +15,13 @@ class MonitoringImagePathNotFoundError(Exception):
 
 
 class MonitoringCycleService:
-    def __init__(self, db: Session) -> None:
+    def __init__(
+        self,
+        db: Session,
+    ) -> None:
         self._configuration_repository = ShelfConfigurationRepository(db)
         self._monitoring_service = ShelfMonitoringService(db)
+        self._stock_alert_service = StockAlertService(db)
 
     def run(
         self,
@@ -52,6 +57,11 @@ class MonitoringCycleService:
             observation = self._monitoring_service.process(
                 configuration=configuration,
                 image_path=image_path,
+            )
+
+            self._stock_alert_service.evaluate(
+                configuration=configuration,
+                observation=observation,
             )
 
             observations.append(observation)
