@@ -34,12 +34,26 @@ class OpenCVROIDetector:
         return "opencv_roi"
 
     def detect(self, image: ImageArray) -> StockDetectionResult:
+        scores = self.score_regions(image)
+
+        occupied_slots = sum(score >= self._difference_threshold for score in scores)
+
+        return StockDetectionResult(
+            detected_units=occupied_slots,
+            shelf_capacity=len(self._regions),
+            detector_name=self.name,
+        )
+
+    def score_regions(
+        self,
+        image: ImageArray,
+    ) -> list[float]:
         self._validate_image(image)
 
         if image.shape != self._empty_reference.shape:
             raise ValueError("Input image dimensions must match the empty reference image.")
 
-        occupied_slots = 0
+        scores: list[float] = []
 
         for region in self._regions:
             current_roi = self._extract_roi(image, region)
@@ -48,19 +62,14 @@ class OpenCVROIDetector:
                 region,
             )
 
-            difference_score = self._calculate_difference_score(
+            score = self._calculate_difference_score(
                 current_roi=current_roi,
                 reference_roi=reference_roi,
             )
 
-            if difference_score >= self._difference_threshold:
-                occupied_slots += 1
+            scores.append(score)
 
-        return StockDetectionResult(
-            detected_units=occupied_slots,
-            shelf_capacity=len(self._regions),
-            detector_name=self.name,
-        )
+        return scores
 
     def _validate_regions(self) -> None:
         image_height, image_width = self._empty_reference.shape[:2]
