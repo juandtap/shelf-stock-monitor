@@ -19,11 +19,17 @@ class Settings(BaseSettings):
     database_password: SecretStr
 
     monitoring_enabled: bool = False
-    monitoring_interval_minutes: int = Field(
-        default=30,
-        ge=1,
-    )
+    monitoring_interval_minutes: int = Field(default=30, ge=1)
     monitoring_image_path: str | None = None
+
+    notification_provider: Literal["logging", "telegram"] = "logging"
+
+    telegram_bot_token: SecretStr | None = None
+    telegram_chat_id: str | None = None
+    telegram_request_timeout_seconds: float = Field(
+        default=10.0,
+        gt=0,
+    )
 
     model_config = SettingsConfigDict(
         env_file=".env",
