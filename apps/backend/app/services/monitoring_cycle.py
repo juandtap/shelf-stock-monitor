@@ -5,7 +5,10 @@ from loguru import logger
 from sqlalchemy.orm import Session
 
 from app.db.models.stock_observation import StockObservation
+from app.notifications.logging_provider import LoggingNotificationProvider
 from app.repositories.shelf_configuration import ShelfConfigurationRepository
+from app.repositories.stock_observation import StockObservationRepository
+from app.services.notification import NotificationService
 from app.services.shelf_monitoring import ShelfMonitoringService
 from app.services.stock_alert import StockAlertService
 
@@ -20,8 +23,14 @@ class MonitoringCycleService:
         db: Session,
     ) -> None:
         self._configuration_repository = ShelfConfigurationRepository(db)
+        self._observation_repository = StockObservationRepository(db)
+
         self._monitoring_service = ShelfMonitoringService(db)
         self._stock_alert_service = StockAlertService(db)
+
+        self._notification_service = NotificationService(
+            provider=LoggingNotificationProvider(),
+        )
 
     def run(
         self,
@@ -33,7 +42,9 @@ class MonitoringCycleService:
         observations: list[StockObservation] = []
 
         for configuration in configurations:
-            image_path = image_paths.get(configuration.id)
+            image_path = image_paths.get(
+                configuration.id,
+            )
 
             if image_path is None:
                 raise MonitoringImagePathNotFoundError(
@@ -54,15 +65,26 @@ class MonitoringCycleService:
                 configuration.detector_type,
             )
 
+            previous_observation = self._observation_repository.get_latest_for_camera_and_product(
+                camera_id=configuration.camera_id,
+                product_id=configuration.product_id,
+            )
+
             observation = self._monitoring_service.process(
                 configuration=configuration,
                 image_path=image_path,
             )
 
-            self._stock_alert_service.evaluate(
+            alert = self._stock_alert_service.evaluate(
                 configuration=configuration,
                 observation=observation,
+                previous_observation=previous_observation,
             )
+
+            if alert is not None:
+                self._notification_service.notify_low_stock(
+                    alert,
+                )
 
             observations.append(observation)
 

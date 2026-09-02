@@ -8,7 +8,10 @@ from app.repositories.stock_alert import StockAlertRepository
 
 
 class StockAlertService:
-    def __init__(self, db: Session) -> None:
+    def __init__(
+        self,
+        db: Session,
+    ) -> None:
         self._repository = StockAlertRepository(db)
 
     def evaluate(
@@ -16,8 +19,11 @@ class StockAlertService:
         *,
         configuration: ShelfConfiguration,
         observation: StockObservation,
+        previous_observation: StockObservation | None = None,
     ) -> StockAlert | None:
-        if observation.stock_percentage >= configuration.low_stock_threshold:
+        current_is_low = observation.stock_percentage < configuration.low_stock_threshold
+
+        if not current_is_low:
             logger.info(
                 (
                     "Stock level normal | "
@@ -29,7 +35,26 @@ class StockAlertService:
                 observation.stock_percentage,
                 configuration.low_stock_threshold,
             )
+            return None
 
+        previous_was_low = (
+            previous_observation is not None
+            and previous_observation.stock_percentage < configuration.low_stock_threshold
+        )
+
+        if previous_was_low:
+            logger.info(
+                (
+                    "Low stock condition continues | "
+                    "configuration_id={} | "
+                    "stock_percentage={:.2f} | "
+                    "threshold={:.2f} | "
+                    "notification_suppressed=true"
+                ),
+                configuration.id,
+                observation.stock_percentage,
+                configuration.low_stock_threshold,
+            )
             return None
 
         existing_alert = self._repository.get_by_observation_id(
@@ -42,7 +67,6 @@ class StockAlertService:
                 observation.id,
                 existing_alert.id,
             )
-
             return existing_alert
 
         alert = self._repository.create(

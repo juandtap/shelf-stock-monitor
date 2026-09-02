@@ -7,7 +7,10 @@ from app.db.models.stock_observation import StockObservation
 
 
 class StockObservationRepository:
-    def __init__(self, db: Session) -> None:
+    def __init__(
+        self,
+        db: Session,
+    ) -> None:
         self.db = db
 
     def create(
@@ -45,7 +48,30 @@ class StockObservationRepository:
 
         return self.db.scalar(statement)
 
-    def get_all(self) -> list[StockObservation]:
+    def get_latest_for_camera_and_product(
+        self,
+        *,
+        camera_id: uuid.UUID,
+        product_id: uuid.UUID,
+    ) -> StockObservation | None:
+        statement = (
+            select(StockObservation)
+            .where(
+                StockObservation.camera_id == camera_id,
+                StockObservation.product_id == product_id,
+            )
+            .order_by(
+                StockObservation.captured_at.desc(),
+                StockObservation.created_at.desc(),
+            )
+            .limit(1)
+        )
+
+        return self.db.scalar(statement)
+
+    def get_all(
+        self,
+    ) -> list[StockObservation]:
         statement = select(StockObservation).order_by(
             StockObservation.captured_at.desc(),
         )
