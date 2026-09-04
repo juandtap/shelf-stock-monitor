@@ -1,9 +1,12 @@
-# apps/backend/scripts/evaluate_opencv_roi.py
-
 from pathlib import Path
 
+from app.benchmarking.mlflow_tracker import MLflowBenchmarkTracker
 from app.benchmarking.models import BenchmarkSample
-from app.benchmarking.runner import BenchmarkRunner, load_benchmark_image
+from app.benchmarking.runner import (
+    BenchmarkRunner,
+    load_benchmark_image,
+)
+from app.core.config import get_settings
 from app.vision.models import RegionOfInterest
 from app.vision.opencv_roi import OpenCVROIDetector
 
@@ -70,6 +73,8 @@ def create_samples() -> list[BenchmarkSample]:
 
 
 def main() -> None:
+    settings = get_settings()
+
     reference_image = load_benchmark_image(REFERENCE_IMAGE)
 
     height, width = reference_image.shape[:2]
@@ -130,6 +135,24 @@ def main() -> None:
     print(f"Latency p50: {summary.latency_p50_ms:.2f} ms")
     print(f"Latency p95: {summary.latency_p95_ms:.2f} ms")
     print(f"Difference threshold: {DIFFERENCE_THRESHOLD:.2f}")
+
+    tracker = MLflowBenchmarkTracker(
+        tracking_uri=settings.mlflow_tracking_uri,
+        experiment_name=settings.mlflow_experiment_name,
+    )
+
+    run_id = tracker.log_run(
+        summary=summary,
+        results=results,
+        parameters={
+            "detector": detector.name,
+            "difference_threshold": DIFFERENCE_THRESHOLD,
+            "shelf_capacity": SHELF_CAPACITY,
+            "reference_image": str(REFERENCE_IMAGE),
+        },
+    )
+
+    print(f"MLflow run ID: {run_id}")
 
 
 if __name__ == "__main__":

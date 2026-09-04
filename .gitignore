@@ -33,6 +33,7 @@ htmlcov/
 logs/
 
 # MLflow
+mlflow.db
 mlruns/
 mlartifacts/
 

@@ -45,6 +45,9 @@ class Settings(BaseSettings):
         gt=0,
     )
 
+    mlflow_tracking_uri: str
+    mlflow_experiment_name: str
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
