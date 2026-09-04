@@ -1,6 +1,9 @@
+from datetime import UTC, datetime, timedelta
+
 from loguru import logger
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.db.models.shelf_configuration import ShelfConfiguration
 from app.db.models.stock_alert import StockAlert
 from app.db.models.stock_observation import StockObservation
@@ -12,7 +15,13 @@ class StockAlertService:
         self,
         db: Session,
     ) -> None:
+        settings = get_settings()
+
         self._repository = StockAlertRepository(db)
+        self._drop_percentage = settings.low_stock_drop_percentage
+        self._reminder_interval = timedelta(
+            minutes=settings.low_stock_reminder_minutes,
+        )
 
     def evaluate(
         self,
@@ -21,9 +30,14 @@ class StockAlertService:
         observation: StockObservation,
         previous_observation: StockObservation | None = None,
     ) -> StockAlert | None:
-        current_is_low = observation.stock_percentage < configuration.low_stock_threshold
+        existing_alert = self._repository.get_by_observation_id(
+            observation.id,
+        )
 
-        if not current_is_low:
+        if existing_alert is not None:
+            return existing_alert
+
+        if observation.stock_percentage >= configuration.low_stock_threshold:
             logger.info(
                 (
                     "Stock level normal | "
@@ -37,38 +51,76 @@ class StockAlertService:
             )
             return None
 
-        previous_was_low = (
+        last_alert = self._repository.get_latest_for_camera_and_product(
+            camera_id=configuration.camera_id,
+            product_id=configuration.product_id,
+        )
+
+        if last_alert is None:
+            return self._create_alert(
+                configuration=configuration,
+                observation=observation,
+                reason="initial_low_stock",
+            )
+
+        previous_was_normal = (
             previous_observation is not None
-            and previous_observation.stock_percentage < configuration.low_stock_threshold
+            and previous_observation.stock_percentage >= configuration.low_stock_threshold
         )
 
-        if previous_was_low:
-            logger.info(
-                (
-                    "Low stock condition continues | "
-                    "configuration_id={} | "
-                    "stock_percentage={:.2f} | "
-                    "threshold={:.2f} | "
-                    "notification_suppressed=true"
-                ),
-                configuration.id,
-                observation.stock_percentage,
-                configuration.low_stock_threshold,
+        if previous_was_normal:
+            return self._create_alert(
+                configuration=configuration,
+                observation=observation,
+                reason="entered_low_stock",
             )
-            return None
 
-        existing_alert = self._repository.get_by_observation_id(
-            observation.id,
+        stock_drop = last_alert.stock_percentage - observation.stock_percentage
+
+        if stock_drop >= self._drop_percentage:
+            return self._create_alert(
+                configuration=configuration,
+                observation=observation,
+                reason="significant_stock_drop",
+            )
+
+        now = datetime.now(UTC)
+        last_alert_at = last_alert.created_at
+
+        if last_alert_at.tzinfo is None:
+            last_alert_at = last_alert_at.replace(
+                tzinfo=UTC,
+            )
+
+        if now - last_alert_at >= self._reminder_interval:
+            return self._create_alert(
+                configuration=configuration,
+                observation=observation,
+                reason="low_stock_reminder",
+            )
+
+        logger.info(
+            (
+                "Low stock condition continues | "
+                "configuration_id={} | "
+                "stock_percentage={:.2f} | "
+                "last_alert_percentage={:.2f} | "
+                "notification_suppressed=true"
+            ),
+            configuration.id,
+            observation.stock_percentage,
+            last_alert.stock_percentage,
         )
 
-        if existing_alert is not None:
-            logger.warning(
-                ("Stock alert already exists | observation_id={} | alert_id={}"),
-                observation.id,
-                existing_alert.id,
-            )
-            return existing_alert
+        return None
 
+    def _create_alert(
+        self,
+        *,
+        configuration: ShelfConfiguration,
+        observation: StockObservation,
+        reason: str,
+    ) -> StockAlert:
         alert = self._repository.create(
             stock_observation_id=observation.id,
             stock_percentage=observation.stock_percentage,
@@ -78,12 +130,14 @@ class StockAlertService:
         logger.warning(
             (
                 "Low stock detected | "
+                "reason={} | "
                 "configuration_id={} | "
                 "observation_id={} | "
                 "stock_percentage={:.2f} | "
                 "threshold={:.2f} | "
                 "alert_id={}"
             ),
+            reason,
             configuration.id,
             observation.id,
             observation.stock_percentage,

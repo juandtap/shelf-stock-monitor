@@ -12,17 +12,31 @@ class Settings(BaseSettings):
     app_host: str = "0.0.0.0"
     app_port: int = 8000
 
-    database_host: str = "localhost"
-    database_port: int = 5432
-    database_name: str = "shelf_stock"
-    database_user: str = "shelf_stock"
+    database_host: str
+    database_port: int
+    database_name: str
+    database_test_name: str
+    database_user: str
     database_password: SecretStr
 
     monitoring_enabled: bool = False
-    monitoring_interval_minutes: int = Field(default=30, ge=1)
+    monitoring_interval_minutes: int = Field(
+        default=30,
+        ge=1,
+    )
     monitoring_image_path: str | None = None
 
     notification_provider: Literal["logging", "telegram"] = "logging"
+
+    low_stock_drop_percentage: float = Field(
+        default=15.0,
+        gt=0,
+        le=100,
+    )
+    low_stock_reminder_minutes: int = Field(
+        default=60,
+        ge=1,
+    )
 
     telegram_bot_token: SecretStr | None = None
     telegram_chat_id: str | None = None

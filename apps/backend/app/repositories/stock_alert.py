@@ -4,6 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db.models.stock_alert import StockAlert
+from app.db.models.stock_observation import StockObservation
 
 
 class StockAlertRepository:
@@ -48,6 +49,30 @@ class StockAlertRepository:
     ) -> StockAlert | None:
         statement = select(StockAlert).where(
             StockAlert.stock_observation_id == stock_observation_id,
+        )
+
+        return self._db.scalar(statement)
+
+    def get_latest_for_camera_and_product(
+        self,
+        *,
+        camera_id: uuid.UUID,
+        product_id: uuid.UUID,
+    ) -> StockAlert | None:
+        statement = (
+            select(StockAlert)
+            .join(
+                StockObservation,
+                StockObservation.id == StockAlert.stock_observation_id,
+            )
+            .where(
+                StockObservation.camera_id == camera_id,
+                StockObservation.product_id == product_id,
+            )
+            .order_by(
+                StockAlert.created_at.desc(),
+            )
+            .limit(1)
         )
 
         return self._db.scalar(statement)

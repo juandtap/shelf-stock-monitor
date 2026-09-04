@@ -1,3 +1,5 @@
+from datetime import UTC, datetime, timedelta
+
 from sqlalchemy.orm import Session
 
 from app.db.models.camera import Camera
@@ -23,12 +25,7 @@ def create_configuration(
         sku="ALERT-TEST-SKU",
     )
 
-    db_session.add_all(
-        [
-            camera,
-            product,
-        ]
-    )
+    db_session.add_all([camera, product])
     db_session.flush()
 
     configuration = ShelfConfiguration(
@@ -78,6 +75,32 @@ def create_observation(
     return observation
 
 
+def test_creates_alert_when_first_observation_is_low(
+    db_session: Session,
+) -> None:
+    configuration = create_configuration(
+        db_session,
+        threshold=50.0,
+    )
+
+    observation = create_observation(
+        db_session,
+        configuration=configuration,
+        stock_percentage=40.0,
+    )
+
+    service = StockAlertService(db_session)
+
+    alert = service.evaluate(
+        configuration=configuration,
+        observation=observation,
+    )
+
+    assert isinstance(alert, StockAlert)
+    assert alert.stock_percentage == 40.0
+    assert alert.threshold_percentage == 50.0
+
+
 def test_creates_alert_when_stock_enters_low_state(
     db_session: Session,
 ) -> None:
@@ -95,7 +118,7 @@ def test_creates_alert_when_stock_enters_low_state(
     observation = create_observation(
         db_session,
         configuration=configuration,
-        stock_percentage=25.0,
+        stock_percentage=40.0,
     )
 
     service = StockAlertService(db_session)
@@ -106,34 +129,8 @@ def test_creates_alert_when_stock_enters_low_state(
         previous_observation=previous_observation,
     )
 
-    assert isinstance(alert, StockAlert)
-    assert alert.stock_observation_id == observation.id
-    assert alert.stock_percentage == 25.0
-    assert alert.threshold_percentage == 50.0
-
-
-def test_creates_alert_when_first_observation_is_low(
-    db_session: Session,
-) -> None:
-    configuration = create_configuration(
-        db_session,
-        threshold=50.0,
-    )
-
-    observation = create_observation(
-        db_session,
-        configuration=configuration,
-        stock_percentage=25.0,
-    )
-
-    service = StockAlertService(db_session)
-
-    alert = service.evaluate(
-        configuration=configuration,
-        observation=observation,
-    )
-
     assert alert is not None
+    assert alert.stock_observation_id == observation.id
 
 
 def test_does_not_create_alert_when_low_state_continues(
@@ -144,27 +141,117 @@ def test_does_not_create_alert_when_low_state_continues(
         threshold=50.0,
     )
 
-    previous_observation = create_observation(
+    first_low_observation = create_observation(
         db_session,
         configuration=configuration,
-        stock_percentage=25.0,
-    )
-
-    observation = create_observation(
-        db_session,
-        configuration=configuration,
-        stock_percentage=25.0,
+        stock_percentage=40.0,
     )
 
     service = StockAlertService(db_session)
 
+    first_alert = service.evaluate(
+        configuration=configuration,
+        observation=first_low_observation,
+    )
+
+    assert first_alert is not None
+
+    current_observation = create_observation(
+        db_session,
+        configuration=configuration,
+        stock_percentage=35.0,
+    )
+
     alert = service.evaluate(
         configuration=configuration,
-        observation=observation,
-        previous_observation=previous_observation,
+        observation=current_observation,
+        previous_observation=first_low_observation,
     )
 
     assert alert is None
+
+
+def test_creates_alert_after_significant_stock_drop(
+    db_session: Session,
+) -> None:
+    configuration = create_configuration(
+        db_session,
+        threshold=50.0,
+    )
+
+    first_low_observation = create_observation(
+        db_session,
+        configuration=configuration,
+        stock_percentage=49.0,
+    )
+
+    service = StockAlertService(db_session)
+
+    first_alert = service.evaluate(
+        configuration=configuration,
+        observation=first_low_observation,
+    )
+
+    assert first_alert is not None
+
+    current_observation = create_observation(
+        db_session,
+        configuration=configuration,
+        stock_percentage=30.0,
+    )
+
+    alert = service.evaluate(
+        configuration=configuration,
+        observation=current_observation,
+        previous_observation=first_low_observation,
+    )
+
+    assert alert is not None
+    assert alert.stock_percentage == 30.0
+
+
+def test_creates_reminder_when_low_stock_persists(
+    db_session: Session,
+) -> None:
+    configuration = create_configuration(
+        db_session,
+        threshold=50.0,
+    )
+
+    first_low_observation = create_observation(
+        db_session,
+        configuration=configuration,
+        stock_percentage=40.0,
+    )
+
+    service = StockAlertService(db_session)
+
+    first_alert = service.evaluate(
+        configuration=configuration,
+        observation=first_low_observation,
+    )
+
+    assert first_alert is not None
+
+    first_alert.created_at = datetime.now(UTC) - timedelta(
+        minutes=10,
+    )
+    db_session.commit()
+
+    current_observation = create_observation(
+        db_session,
+        configuration=configuration,
+        stock_percentage=40.0,
+    )
+
+    reminder_alert = service.evaluate(
+        configuration=configuration,
+        observation=current_observation,
+        previous_observation=first_low_observation,
+    )
+
+    assert reminder_alert is not None
+    assert reminder_alert.stock_percentage == 40.0
 
 
 def test_does_not_create_alert_when_stock_equals_threshold(
@@ -173,12 +260,6 @@ def test_does_not_create_alert_when_stock_equals_threshold(
     configuration = create_configuration(
         db_session,
         threshold=50.0,
-    )
-
-    previous_observation = create_observation(
-        db_session,
-        configuration=configuration,
-        stock_percentage=75.0,
     )
 
     observation = create_observation(
@@ -192,7 +273,6 @@ def test_does_not_create_alert_when_stock_equals_threshold(
     alert = service.evaluate(
         configuration=configuration,
         observation=observation,
-        previous_observation=previous_observation,
     )
 
     assert alert is None
@@ -206,28 +286,49 @@ def test_creates_new_alert_after_stock_recovers_and_drops_again(
         threshold=50.0,
     )
 
+    initial_low = create_observation(
+        db_session,
+        configuration=configuration,
+        stock_percentage=40.0,
+    )
+
+    service = StockAlertService(db_session)
+
+    first_alert = service.evaluate(
+        configuration=configuration,
+        observation=initial_low,
+    )
+
+    assert first_alert is not None
+
     recovered_observation = create_observation(
         db_session,
         configuration=configuration,
         stock_percentage=75.0,
     )
 
+    recovery_result = service.evaluate(
+        configuration=configuration,
+        observation=recovered_observation,
+        previous_observation=initial_low,
+    )
+
+    assert recovery_result is None
+
     new_low_observation = create_observation(
         db_session,
         configuration=configuration,
-        stock_percentage=25.0,
+        stock_percentage=40.0,
     )
 
-    service = StockAlertService(db_session)
-
-    alert = service.evaluate(
+    new_alert = service.evaluate(
         configuration=configuration,
         observation=new_low_observation,
         previous_observation=recovered_observation,
     )
 
-    assert alert is not None
-    assert alert.stock_observation_id == new_low_observation.id
+    assert new_alert is not None
+    assert new_alert.id != first_alert.id
 
 
 def test_returns_existing_alert_when_same_observation_is_evaluated_twice(
@@ -241,7 +342,7 @@ def test_returns_existing_alert_when_same_observation_is_evaluated_twice(
     observation = create_observation(
         db_session,
         configuration=configuration,
-        stock_percentage=25.0,
+        stock_percentage=40.0,
     )
 
     service = StockAlertService(db_session)

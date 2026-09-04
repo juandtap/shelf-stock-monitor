@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import SecretStr
 
 from app.core.config import Settings
@@ -8,16 +10,23 @@ from app.notifications.factory import (
 from app.notifications.logging_provider import LoggingNotificationProvider
 from app.notifications.telegram_provider import TelegramNotificationProvider
 
+NotificationProviderName = Literal["logging", "telegram"]
+
 
 def create_settings(
     *,
-    notification_provider: str = "logging",
+    notification_provider: NotificationProviderName = "logging",
     telegram_bot_token: SecretStr | None = None,
     telegram_chat_id: str | None = None,
 ) -> Settings:
     return Settings(
+        database_host="localhost",
+        database_port=5432,
+        database_name="shelf_stock",
+        database_test_name="shelf_stock_test",
+        database_user="shelf_stock",
         database_password=SecretStr("test"),
-        notification_provider=notification_provider,  # type: ignore[arg-type]
+        notification_provider=notification_provider,
         telegram_bot_token=telegram_bot_token,
         telegram_chat_id=telegram_chat_id,
     )

@@ -1,3 +1,4 @@
+import os
 from collections.abc import Generator
 
 import pytest
@@ -6,11 +7,15 @@ from sqlalchemy import create_engine
 from sqlalchemy.engine import URL
 from sqlalchemy.orm import Session, sessionmaker
 
+os.environ["APP_ENV"] = "testing"
+os.environ["NOTIFICATION_PROVIDER"] = "logging"
+
 from app.core.config import get_settings
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
 
+get_settings.cache_clear()
 settings = get_settings()
 
 TEST_DATABASE_URL = URL.create(
@@ -19,7 +24,7 @@ TEST_DATABASE_URL = URL.create(
     password=settings.database_password.get_secret_value(),
     host=settings.database_host,
     port=settings.database_port,
-    database="shelf_stock_test",
+    database=settings.database_test_name,
 )
 
 test_engine = create_engine(
@@ -61,7 +66,9 @@ def db_session() -> Generator[Session, None, None]:
 
 
 @pytest.fixture
-def client(db_session: Session) -> Generator[TestClient, None, None]:
+def client(
+    db_session: Session,
+) -> Generator[TestClient, None, None]:
     def override_get_db() -> Generator[Session, None, None]:
         yield db_session
 
