@@ -1,9 +1,9 @@
+# apps/backend/scripts/evaluate_opencv_roi.py
+
 from pathlib import Path
-from typing import cast
 
-import cv2
-
-from app.vision.detector import ImageArray
+from app.benchmarking.models import BenchmarkSample
+from app.benchmarking.runner import BenchmarkRunner, load_benchmark_image
 from app.vision.models import RegionOfInterest
 from app.vision.opencv_roi import OpenCVROIDetector
 
@@ -13,17 +13,7 @@ SAMPLES_DIRECTORY = Path("../../data/samples")
 
 DIFFERENCE_THRESHOLD = 20.0
 
-
-def load_image(path: Path) -> ImageArray:
-    image_raw = cv2.imread(
-        str(path),
-        cv2.IMREAD_COLOR,
-    )
-
-    if image_raw is None:
-        raise RuntimeError(f"Unable to read image: {path}")
-
-    return cast(ImageArray, image_raw)
+SHELF_CAPACITY = 4
 
 
 def create_regions(
@@ -31,8 +21,7 @@ def create_regions(
     width: int,
     height: int,
 ) -> list[RegionOfInterest]:
-    slot_width = width // 4
-
+    slot_width = width // SHELF_CAPACITY
     horizontal_margin = int(slot_width * 0.05)
 
     roi_y = int(height * 0.10)
@@ -46,14 +35,42 @@ def create_regions(
             width=slot_width - (horizontal_margin * 2),
             height=roi_height,
         )
-        for index in range(4)
+        for index in range(SHELF_CAPACITY)
+    ]
+
+
+def create_samples() -> list[BenchmarkSample]:
+    return [
+        BenchmarkSample(
+            filename="shelf_01_empty.png",
+            expected_units=0,
+            shelf_capacity=SHELF_CAPACITY,
+        ),
+        BenchmarkSample(
+            filename="shelf_01_25.png",
+            expected_units=1,
+            shelf_capacity=SHELF_CAPACITY,
+        ),
+        BenchmarkSample(
+            filename="shelf_01_50.png",
+            expected_units=2,
+            shelf_capacity=SHELF_CAPACITY,
+        ),
+        BenchmarkSample(
+            filename="shelf_01_75.png",
+            expected_units=3,
+            shelf_capacity=SHELF_CAPACITY,
+        ),
+        BenchmarkSample(
+            filename="shelf_01_full.png",
+            expected_units=4,
+            shelf_capacity=SHELF_CAPACITY,
+        ),
     ]
 
 
 def main() -> None:
-    reference_image = load_image(
-        REFERENCE_IMAGE,
-    )
+    reference_image = load_benchmark_image(REFERENCE_IMAGE)
 
     height, width = reference_image.shape[:2]
 
@@ -68,54 +85,50 @@ def main() -> None:
         difference_threshold=DIFFERENCE_THRESHOLD,
     )
 
-    samples = [
-        ("shelf_01_empty.png", 0),
-        ("shelf_01_25.png", 1),
-        ("shelf_01_50.png", 2),
-        ("shelf_01_75.png", 3),
-        ("shelf_01_full.png", 4),
-    ]
+    runner = BenchmarkRunner(
+        detector=detector,
+        samples_directory=SAMPLES_DIRECTORY,
+    )
+
+    samples = create_samples()
+
+    results, summary = runner.run(
+        samples=samples,
+    )
 
     print()
-    print("OpenCV ROI evaluation")
-    print("-" * 94)
+    print("Stock detector benchmark")
+    print("-" * 106)
     print(
         f"{'Image':<22}"
         f"{'Expected':>10}"
         f"{'Detected':>10}"
-        f"{'ROI 1':>10}"
-        f"{'ROI 2':>10}"
-        f"{'ROI 3':>10}"
-        f"{'ROI 4':>10}"
+        f"{'Expected %':>12}"
+        f"{'Detected %':>12}"
+        f"{'Abs Error':>12}"
+        f"{'Latency ms':>14}"
     )
-    print("-" * 94)
+    print("-" * 106)
 
-    total_absolute_error = 0
-
-    for filename, expected_units in samples:
-        image = load_image(SAMPLES_DIRECTORY / filename)
-
-        scores = detector.score_regions(image)
-        result = detector.detect(image)
-
-        absolute_error = abs(expected_units - result.detected_units)
-
-        total_absolute_error += absolute_error
-
+    for result in results:
         print(
-            f"{filename:<22}"
-            f"{expected_units:>10}"
+            f"{result.filename:<22}"
+            f"{result.expected_units:>10}"
             f"{result.detected_units:>10}"
-            f"{scores[0]:>10.2f}"
-            f"{scores[1]:>10.2f}"
-            f"{scores[2]:>10.2f}"
-            f"{scores[3]:>10.2f}"
+            f"{result.expected_stock_percentage:>12.2f}"
+            f"{result.detected_stock_percentage:>12.2f}"
+            f"{result.absolute_units_error:>12}"
+            f"{result.latency_ms:>14.2f}"
         )
 
-    mae = total_absolute_error / len(samples)
-
-    print("-" * 94)
-    print(f"MAE: {mae:.2f} units")
+    print("-" * 106)
+    print(f"Detector: {summary.detector_name}")
+    print(f"Samples: {summary.sample_count}")
+    print(f"Units MAE: {summary.units_mae:.2f}")
+    print(f"Stock percentage MAE: {summary.stock_percentage_mae:.2f}%")
+    print(f"Mean latency: {summary.latency_mean_ms:.2f} ms")
+    print(f"Latency p50: {summary.latency_p50_ms:.2f} ms")
+    print(f"Latency p95: {summary.latency_p95_ms:.2f} ms")
     print(f"Difference threshold: {DIFFERENCE_THRESHOLD:.2f}")
 
 
