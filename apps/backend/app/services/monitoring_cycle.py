@@ -4,14 +4,16 @@ from collections.abc import Mapping
 from loguru import logger
 from sqlalchemy.orm import Session
 
-from app.core.config import get_settings
 from app.db.models.stock_observation import StockObservation
-from app.notifications.factory import create_notification_provider
+from app.notifications.provider import NotificationProvider
 from app.repositories.shelf_configuration import ShelfConfigurationRepository
 from app.repositories.stock_observation import StockObservationRepository
 from app.services.notification import NotificationService
 from app.services.shelf_monitoring import ShelfMonitoringService
-from app.services.stock_alert import StockAlertService
+from app.services.stock_alert import (
+    StockAlertPolicy,
+    StockAlertService,
+)
 
 
 class MonitoringImagePathNotFoundError(Exception):
@@ -22,16 +24,19 @@ class MonitoringCycleService:
     def __init__(
         self,
         db: Session,
+        *,
+        alert_policy: StockAlertPolicy,
+        notification_provider: NotificationProvider,
     ) -> None:
-        settings = get_settings()
-
         self._configuration_repository = ShelfConfigurationRepository(db)
         self._observation_repository = StockObservationRepository(db)
 
         self._monitoring_service = ShelfMonitoringService(db)
-        self._stock_alert_service = StockAlertService(db)
 
-        notification_provider = create_notification_provider(settings)
+        self._stock_alert_service = StockAlertService(
+            db,
+            policy=alert_policy,
+        )
 
         self._notification_service = NotificationService(
             provider=notification_provider,

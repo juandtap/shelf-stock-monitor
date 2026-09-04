@@ -1,27 +1,48 @@
+from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
 from loguru import logger
 from sqlalchemy.orm import Session
 
-from app.core.config import get_settings
 from app.db.models.shelf_configuration import ShelfConfiguration
 from app.db.models.stock_alert import StockAlert
 from app.db.models.stock_observation import StockObservation
 from app.repositories.stock_alert import StockAlertRepository
+
+Clock = Callable[[], datetime]
+
+
+def utc_now() -> datetime:
+    return datetime.now(UTC)
+
+
+@dataclass(frozen=True, slots=True)
+class StockAlertPolicy:
+    drop_percentage: float
+    reminder_interval: timedelta
+
+    def __post_init__(self) -> None:
+        if not 0 < self.drop_percentage <= 100:
+            raise ValueError(
+                "drop_percentage must be greater than 0 and less than or equal to 100."
+            )
+
+        if self.reminder_interval <= timedelta(0):
+            raise ValueError("reminder_interval must be greater than zero.")
 
 
 class StockAlertService:
     def __init__(
         self,
         db: Session,
+        *,
+        policy: StockAlertPolicy,
+        clock: Clock = utc_now,
     ) -> None:
-        settings = get_settings()
-
         self._repository = StockAlertRepository(db)
-        self._drop_percentage = settings.low_stock_drop_percentage
-        self._reminder_interval = timedelta(
-            minutes=settings.low_stock_reminder_minutes,
-        )
+        self._policy = policy
+        self._clock = clock
 
     def evaluate(
         self,
@@ -77,14 +98,14 @@ class StockAlertService:
 
         stock_drop = last_alert.stock_percentage - observation.stock_percentage
 
-        if stock_drop >= self._drop_percentage:
+        if stock_drop >= self._policy.drop_percentage:
             return self._create_alert(
                 configuration=configuration,
                 observation=observation,
                 reason="significant_stock_drop",
             )
 
-        now = datetime.now(UTC)
+        now = self._clock()
         last_alert_at = last_alert.created_at
 
         if last_alert_at.tzinfo is None:
@@ -92,7 +113,7 @@ class StockAlertService:
                 tzinfo=UTC,
             )
 
-        if now - last_alert_at >= self._reminder_interval:
+        if now - last_alert_at >= self._policy.reminder_interval:
             return self._create_alert(
                 configuration=configuration,
                 observation=observation,

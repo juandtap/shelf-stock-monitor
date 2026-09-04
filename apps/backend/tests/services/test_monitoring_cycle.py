@@ -1,3 +1,4 @@
+from datetime import timedelta
 from pathlib import Path
 
 import cv2
@@ -14,8 +15,41 @@ from app.services.monitoring_cycle import (
     MonitoringCycleService,
     MonitoringImagePathNotFoundError,
 )
+from app.services.stock_alert import StockAlertPolicy
 
 ImageArray = NDArray[np.uint8]
+
+
+class FakeNotificationProvider:
+    def __init__(self) -> None:
+        self.sent_alerts: list[StockAlert] = []
+
+    def send_low_stock_alert(
+        self,
+        alert: StockAlert,
+    ) -> None:
+        self.sent_alerts.append(alert)
+
+
+def create_alert_policy() -> StockAlertPolicy:
+    return StockAlertPolicy(
+        drop_percentage=15.0,
+        reminder_interval=timedelta(minutes=60),
+    )
+
+
+def create_monitoring_service(
+    db_session: Session,
+) -> tuple[MonitoringCycleService, FakeNotificationProvider]:
+    notification_provider = FakeNotificationProvider()
+
+    service = MonitoringCycleService(
+        db_session,
+        alert_policy=create_alert_policy(),
+        notification_provider=notification_provider,
+    )
+
+    return service, notification_provider
 
 
 def create_test_image(
@@ -37,7 +71,9 @@ def create_test_image(
     )
 
     if not saved:
-        raise RuntimeError(f"Could not save test image: {path}")
+        raise RuntimeError(
+            f"Could not save test image: {path}",
+        )
 
 
 def create_configuration(
@@ -113,6 +149,7 @@ def test_cycle_processes_only_active_configurations(
         active_reference,
         occupied=False,
     )
+
     create_test_image(
         inactive_reference,
         occupied=False,
@@ -122,6 +159,7 @@ def test_cycle_processes_only_active_configurations(
         active_current,
         occupied=True,
     )
+
     create_test_image(
         inactive_current,
         occupied=True,
@@ -139,7 +177,7 @@ def test_cycle_processes_only_active_configurations(
         is_active=False,
     )
 
-    service = MonitoringCycleService(
+    service, notification_provider = create_monitoring_service(
         db_session,
     )
 
@@ -159,6 +197,8 @@ def test_cycle_processes_only_active_configurations(
     assert observation.shelf_capacity == 2
     assert observation.stock_percentage == 50.0
 
+    assert notification_provider.sent_alerts == []
+
 
 def test_cycle_raises_when_active_configuration_has_no_image(
     db_session: Session,
@@ -177,7 +217,7 @@ def test_cycle_raises_when_active_configuration_has_no_image(
         is_active=True,
     )
 
-    service = MonitoringCycleService(
+    service, _ = create_monitoring_service(
         db_session,
     )
 
@@ -215,7 +255,7 @@ def test_cycle_creates_low_stock_alert(
         low_stock_threshold=50.0,
     )
 
-    service = MonitoringCycleService(
+    service, notification_provider = create_monitoring_service(
         db_session,
     )
 
@@ -242,6 +282,9 @@ def test_cycle_creates_low_stock_alert(
     assert alert.stock_percentage == 0.0
     assert alert.threshold_percentage == 50.0
 
+    assert len(notification_provider.sent_alerts) == 1
+    assert notification_provider.sent_alerts[0].id == alert.id
+
 
 def test_cycle_does_not_create_alert_at_threshold(
     db_session: Session,
@@ -267,7 +310,7 @@ def test_cycle_does_not_create_alert_at_threshold(
         low_stock_threshold=50.0,
     )
 
-    service = MonitoringCycleService(
+    service, notification_provider = create_monitoring_service(
         db_session,
     )
 
@@ -290,3 +333,4 @@ def test_cycle_does_not_create_alert_at_threshold(
     alert = db_session.scalar(statement)
 
     assert alert is None
+    assert notification_provider.sent_alerts == []

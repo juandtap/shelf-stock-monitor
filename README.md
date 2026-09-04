@@ -776,3 +776,364 @@ At this stage monitoring is triggered manually through the API. Periodic executi
 
 
 Note. Monitoring cycle added with 1 min. 
+
+
+## Updatet initial config:
+## Initial development data setup
+
+Database migrations create the application schema, but they do not create
+business data such as cameras, products, or shelf configurations.
+
+After recreating the PostgreSQL volume or setting up the project on a new
+machine, create the initial development data through the REST API.
+
+This is intentional. Cameras, products, and shelf configurations are
+application data and should not be managed through Alembic migrations.
+
+### 1. Create a camera
+
+```bash
+curl -X POST \
+  "http://localhost:8000/cameras" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Shelf Camera 01",
+    "location": "Test Shelf"
+  }'
+```
+
+Save the returned camera `id`.
+
+Example response:
+
+```json
+{
+  "id": "<CAMERA_ID>",
+  "name": "Shelf Camera 01",
+  "location": "Test Shelf"
+}
+```
+
+### 2. Create a product
+
+```bash
+curl -X POST \
+  "http://localhost:8000/products" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Coca-Cola 500 ml",
+    "sku": "COKE-500"
+  }'
+```
+
+Save the returned product `id`.
+
+Example response:
+
+```json
+{
+  "id": "<PRODUCT_ID>",
+  "name": "Coca-Cola 500 ml",
+  "sku": "COKE-500"
+}
+```
+
+### 3. Create the shelf configuration
+
+Replace `<CAMERA_ID>` and `<PRODUCT_ID>` with the values returned by the
+previous requests.
+
+The following configuration corresponds to the current four-slot OpenCV ROI
+development baseline.
+
+```bash
+curl -X POST \
+  "http://localhost:8000/shelf-configurations" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "camera_id": "<CAMERA_ID>",
+    "product_id": "<PRODUCT_ID>",
+    "detector_type": "opencv_roi",
+    "reference_image_path": "../../data/references/shelf_01_empty.png",
+    "detector_config": {
+      "difference_threshold": 20.0,
+      "regions": [
+        {
+          "x": 20,
+          "y": 94,
+          "width": 378,
+          "height": 639
+        },
+        {
+          "x": 438,
+          "y": 94,
+          "width": 378,
+          "height": 639
+        },
+        {
+          "x": 856,
+          "y": 94,
+          "width": 378,
+          "height": 639
+        },
+        {
+          "x": 1274,
+          "y": 94,
+          "width": 378,
+          "height": 639
+        }
+      ]
+    },
+    "low_stock_threshold": 50.0,
+    "is_active": true
+  }'
+```
+
+### 4. Verify the configuration
+
+```bash
+curl http://localhost:8000/shelf-configurations
+```
+
+At least one shelf configuration must have:
+
+```text
+is_active = true
+```
+
+The scheduler only processes active shelf configurations.
+
+If the application logs show:
+
+```text
+Active shelf configurations found | count=0
+Monitoring cycle skipped | reason=no_active_configurations
+```
+
+the database does not currently contain an active shelf configuration.
+
+### 5. Configure the development monitoring image
+
+The current development scheduler uses a configured image path to simulate
+the image that would eventually come from a physical camera.
+
+Configure it in:
+
+```text
+apps/backend/.env
+```
+
+For example:
+
+```env
+MONITORING_IMAGE_PATH=../../data/samples/shelf_01_25.png
+```
+
+The current synthetic OpenCV ROI baseline is:
+
+| Image | Units | Stock |
+| --- | ---: | ---: |
+| `shelf_01_empty.png` | 0 | 0% |
+| `shelf_01_25.png` | 1 | 25% |
+| `shelf_01_50.png` | 2 | 50% |
+| `shelf_01_75.png` | 3 | 75% |
+| `shelf_01_full.png` | 4 | 100% |
+
+The development shelf configuration uses:
+
+```text
+low_stock_threshold = 50%
+difference_threshold = 20
+```
+
+Therefore:
+
+```text
+0%  < 50% -> low stock
+25% < 50% -> low stock
+50% = 50% -> normal
+75% > 50% -> normal
+100% > 50% -> normal
+```
+
+For example, using:
+
+```env
+MONITORING_IMAGE_PATH=../../data/samples/shelf_01_25.png
+```
+
+should produce an observation similar to:
+
+```text
+detected_units = 1
+shelf_capacity = 4
+stock_percentage = 25.0
+```
+
+Because `25% < 50%`, the first low-stock observation should generate an
+alert.
+
+Subsequent observations may be suppressed according to the configured
+low-stock alert policy.
+
+### 6. Low-stock alert development configuration
+
+The alert policy can be configured in:
+
+```text
+apps/backend/.env
+```
+
+Example:
+
+```env
+NOTIFICATION_PROVIDER=logging
+LOW_STOCK_DROP_PERCENTAGE=15
+LOW_STOCK_REMINDER_MINUTES=5
+```
+
+During local development, using the `logging` notification provider avoids
+sending external notifications.
+
+The current alert policy generates a new alert when:
+
+1. Low stock is detected and no previous alert exists.
+2. Stock recovers to a normal level and later enters the low-stock state again.
+3. Stock drops by at least `LOW_STOCK_DROP_PERCENTAGE` percentage points
+   relative to the last generated alert.
+4. Stock remains low for at least `LOW_STOCK_REMINDER_MINUTES` since the last
+   alert.
+
+For example, with:
+
+```text
+LOW_STOCK_DROP_PERCENTAGE=15
+```
+
+the following sequence behaves as:
+
+```text
+49% -> ALERT
+45% -> suppressed
+40% -> suppressed
+34% -> ALERT
+30% -> suppressed
+19% -> ALERT
+```
+
+The significant drop is calculated relative to the stock percentage of the
+last generated alert, not the immediately previous observation.
+
+### 7. Verify the scheduler
+
+Start the backend from:
+
+```bash
+cd apps/backend
+```
+
+Then run Uvicorn using the normal development command.
+
+When at least one active shelf configuration exists, the scheduler should log:
+
+```text
+Monitoring cycle started
+Active shelf configurations found | count=1
+Processing shelf configuration
+```
+
+For the `25%` sample with a `50%` low-stock threshold, the first cycle should
+eventually produce a low-stock event similar to:
+
+```text
+Low stock detected | reason=initial_low_stock
+```
+
+A subsequent cycle using the same image should normally be suppressed:
+
+```text
+Low stock condition continues | notification_suppressed=true
+```
+
+### Database reset behavior
+
+Running:
+
+```bash
+docker compose down -v
+```
+
+removes the PostgreSQL data volume.
+
+This deletes both the application schema and all existing business data,
+including:
+
+- cameras
+- products
+- shelf configurations
+- stock observations
+- stock alerts
+
+Start PostgreSQL again with:
+
+```bash
+docker compose up -d
+```
+
+Then recreate the application schema using Alembic:
+
+```bash
+cd apps/backend
+uv run alembic upgrade head
+```
+
+You can verify the current migration with:
+
+```bash
+uv run alembic current
+```
+
+At this point the database schema exists, but the application business data
+does not.
+
+Create the camera, product, and shelf configuration again using the REST API
+steps documented above.
+
+A typical clean development setup therefore follows:
+
+```bash
+docker compose up -d
+
+cd apps/backend
+
+uv sync --dev
+
+uv run alembic upgrade head
+
+uv run uvicorn app.main:app --reload
+```
+
+Then create the initial development data through the REST API.
+
+> **Important:** Alembic is responsible for the database schema. Cameras,
+> products, and shelf configurations are application data and are intentionally
+> not created by database migrations.
+
+### Future data management
+
+The current REST-based setup is appropriate for development and keeps database
+migrations independent from business data.
+
+A future frontend can provide management interfaces for resources such as:
+
+```text
+Cameras
+Products
+Shelf configurations
+```
+
+Product creation may also be extended with CSV import for bulk catalog
+management.
+
+These features are intentionally deferred until the core monitoring,
+computer-vision, alerting, and benchmarking workflows are complete.
