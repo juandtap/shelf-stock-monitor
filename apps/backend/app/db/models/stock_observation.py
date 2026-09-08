@@ -1,8 +1,16 @@
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import CheckConstraint, DateTime, Float, ForeignKey, Integer, String, func
+from sqlalchemy import (
+    CheckConstraint,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    func,
+)
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -12,6 +20,10 @@ from app.db.models.mixins import TimestampMixin
 if TYPE_CHECKING:
     from app.db.models.camera import Camera
     from app.db.models.product import Product
+
+
+def utc_now() -> datetime:
+    return datetime.now(UTC)
 
 
 class StockObservation(TimestampMixin, Base):
@@ -39,14 +51,20 @@ class StockObservation(TimestampMixin, Base):
 
     camera_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("cameras.id", ondelete="CASCADE"),
+        ForeignKey(
+            "cameras.id",
+            ondelete="CASCADE",
+        ),
         nullable=False,
         index=True,
     )
 
     product_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("products.id", ondelete="CASCADE"),
+        ForeignKey(
+            "products.id",
+            ondelete="CASCADE",
+        ),
         nullable=False,
         index=True,
     )
@@ -74,7 +92,8 @@ class StockObservation(TimestampMixin, Base):
     captured_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
-        server_default=func.now(),
+        default=utc_now,
+        server_default=func.clock_timestamp(),
         index=True,
     )
 

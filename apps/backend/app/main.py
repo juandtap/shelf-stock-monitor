@@ -24,8 +24,10 @@ async def lifespan(
         settings.app_env,
     )
 
+    scheduler_enabled = settings.monitoring_enabled and settings.app_env != "testing"
+
     monitoring_scheduler = MonitoringScheduler(
-        enabled=settings.monitoring_enabled,
+        enabled=scheduler_enabled,
         interval_minutes=settings.monitoring_interval_minutes,
         job=run_monitoring_cycle,
     )
@@ -39,7 +41,9 @@ async def lifespan(
     finally:
         monitoring_scheduler.shutdown()
 
-        logger.info("Application stopped")
+        logger.info(
+            "Application stopped",
+        )
 
 
 app = FastAPI(

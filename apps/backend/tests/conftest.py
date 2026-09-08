@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 os.environ["APP_ENV"] = "testing"
 os.environ["NOTIFICATION_PROVIDER"] = "logging"
+os.environ["MONITORING_ENABLED"] = "false"
 
 from app.core.config import get_settings
 from app.db.base import Base
@@ -35,8 +36,8 @@ test_engine = create_engine(
 TestingSessionLocal = sessionmaker(
     bind=test_engine,
     autoflush=False,
-    autocommit=False,
     expire_on_commit=False,
+    join_transaction_mode="create_savepoint",
 )
 
 
@@ -55,7 +56,9 @@ def db_session() -> Generator[Session, None, None]:
     connection = test_engine.connect()
     transaction = connection.begin()
 
-    session = TestingSessionLocal(bind=connection)
+    session = TestingSessionLocal(
+        bind=connection,
+    )
 
     try:
         yield session
