@@ -1,4 +1,3 @@
-# Fake detector
 import uuid
 
 from sqlalchemy.orm import Session
@@ -24,6 +23,7 @@ class StockDetectionService:
         image: ImageArray,
         camera_id: uuid.UUID,
         product_id: uuid.UUID,
+        shelf_capacity: int,
     ) -> StockObservation:
         detection = self._detector.detect(image)
 
@@ -31,7 +31,7 @@ class StockDetectionService:
             camera_id=camera_id,
             product_id=product_id,
             detected_units=detection.detected_units,
-            shelf_capacity=detection.shelf_capacity,
+            shelf_capacity=shelf_capacity,
             detector_name=detection.detector_name,
         )
 

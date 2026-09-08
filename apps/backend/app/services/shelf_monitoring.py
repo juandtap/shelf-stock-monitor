@@ -49,6 +49,7 @@ class ShelfMonitoringService:
             image=image,
             camera_id=configuration.camera_id,
             product_id=configuration.product_id,
+            shelf_capacity=configuration.shelf_capacity,
         )
 
     @staticmethod

@@ -124,6 +124,7 @@ def create_configuration(
                 },
             ],
         },
+        shelf_capacity=2,
         low_stock_threshold=low_stock_threshold,
         is_active=is_active,
     )

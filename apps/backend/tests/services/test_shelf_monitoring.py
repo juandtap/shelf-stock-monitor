@@ -29,7 +29,12 @@ def create_configuration(
         sku=f"MONITORING-{uuid.uuid4()}",
     )
 
-    db_session.add_all([camera, product])
+    db_session.add_all(
+        [
+            camera,
+            product,
+        ]
+    )
     db_session.commit()
     db_session.refresh(camera)
     db_session.refresh(product)
@@ -68,6 +73,7 @@ def create_configuration(
                 },
             ],
         },
+        shelf_capacity=4,
     )
 
     db_session.add(configuration)
@@ -98,6 +104,7 @@ def test_process_shelf_image_creates_observation(
         str(reference_path),
         reference_image,
     )
+
     assert cv2.imwrite(
         str(current_path),
         current_image,
@@ -108,7 +115,9 @@ def test_process_shelf_image_creates_observation(
         reference_path,
     )
 
-    service = ShelfMonitoringService(db_session)
+    service = ShelfMonitoringService(
+        db_session,
+    )
 
     observation = service.process(
         configuration=configuration,
@@ -118,6 +127,7 @@ def test_process_shelf_image_creates_observation(
     assert observation.camera_id == configuration.camera_id
     assert observation.product_id == configuration.product_id
     assert observation.detected_units == 2
+    assert observation.shelf_capacity == configuration.shelf_capacity
     assert observation.shelf_capacity == 4
     assert observation.stock_percentage == 50.0
     assert observation.detector_name == "opencv_roi"
@@ -144,9 +154,13 @@ def test_process_shelf_image_rejects_missing_image(
         reference_path,
     )
 
-    service = ShelfMonitoringService(db_session)
+    service = ShelfMonitoringService(
+        db_session,
+    )
 
-    with pytest.raises(CurrentImageNotFoundError):
+    with pytest.raises(
+        CurrentImageNotFoundError,
+    ):
         service.process(
             configuration=configuration,
             image_path=str(tmp_path / "missing.jpg"),

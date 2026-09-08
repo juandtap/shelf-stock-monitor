@@ -39,6 +39,7 @@ def configuration_payload(
         "product_id": product_id,
         "detector_type": "opencv_roi",
         "reference_image_path": "data/references/shelf_01_empty.jpg",
+        "shelf_capacity": 2,
         "detector_config": {
             "difference_threshold": 30.0,
             "regions": [
@@ -59,7 +60,9 @@ def configuration_payload(
     }
 
 
-def test_create_shelf_configuration(client: TestClient) -> None:
+def test_create_shelf_configuration(
+    client: TestClient,
+) -> None:
     camera_id = create_camera(client)
     product_id = create_product(client)
 
@@ -78,8 +81,29 @@ def test_create_shelf_configuration(client: TestClient) -> None:
     assert data["camera_id"] == camera_id
     assert data["product_id"] == product_id
     assert data["detector_type"] == "opencv_roi"
+    assert data["shelf_capacity"] == 2
     assert data["detector_config"]["difference_threshold"] == 30.0
     assert len(data["detector_config"]["regions"]) == 2
+
+
+def test_configuration_rejects_capacity_different_from_roi_count(
+    client: TestClient,
+) -> None:
+    camera_id = create_camera(client)
+    product_id = create_product(client)
+
+    payload = configuration_payload(
+        camera_id,
+        product_id,
+    )
+    payload["shelf_capacity"] = 4
+
+    response = client.post(
+        "/shelf-configurations",
+        json=payload,
+    )
+
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
 
 def test_duplicate_configuration_returns_conflict(
@@ -120,10 +144,13 @@ def test_list_shelf_configurations(
         ),
     )
 
-    response = client.get("/shelf-configurations")
+    response = client.get(
+        "/shelf-configurations",
+    )
 
     assert response.status_code == status.HTTP_200_OK
     assert len(response.json()) == 1
+    assert response.json()[0]["shelf_capacity"] == 2
 
 
 def test_configuration_requires_existing_camera(

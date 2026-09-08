@@ -32,6 +32,10 @@ class ShelfConfigurationCreate(BaseModel):
 
     detector_config: OpenCVROIConfiguration
 
+    shelf_capacity: int = Field(
+        gt=0,
+    )
+
     low_stock_threshold: float = Field(
         default=50.0,
         ge=0,
@@ -42,8 +46,16 @@ class ShelfConfigurationCreate(BaseModel):
     def validate_detector_requirements(
         self,
     ) -> "ShelfConfigurationCreate":
-        if self.detector_type == "opencv_roi" and not self.reference_image_path:
-            raise ValueError("reference_image_path is required for opencv_roi.")
+        if self.detector_type == "opencv_roi":
+            if not self.reference_image_path:
+                raise ValueError("reference_image_path is required for opencv_roi.")
+
+            region_count = len(self.detector_config.regions)
+
+            if self.shelf_capacity != region_count:
+                raise ValueError(
+                    "shelf_capacity must match the number of configured regions for opencv_roi."
+                )
 
         return self
 
@@ -61,6 +73,7 @@ class ShelfConfigurationResponse(BaseModel):
     reference_image_path: str | None
     detector_config: OpenCVROIConfiguration
 
+    shelf_capacity: int
     low_stock_threshold: float
     is_active: bool
 

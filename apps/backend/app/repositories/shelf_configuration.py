@@ -24,6 +24,7 @@ class ShelfConfigurationRepository:
             detector_type=configuration_data.detector_type,
             reference_image_path=configuration_data.reference_image_path,
             detector_config=configuration_data.detector_config.model_dump(),
+            shelf_capacity=configuration_data.shelf_capacity,
             low_stock_threshold=configuration_data.low_stock_threshold,
         )
 

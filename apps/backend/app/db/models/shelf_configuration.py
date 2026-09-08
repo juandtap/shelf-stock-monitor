@@ -6,6 +6,7 @@ from sqlalchemy import (
     CheckConstraint,
     Float,
     ForeignKey,
+    Integer,
     String,
     UniqueConstraint,
 )
@@ -28,6 +29,10 @@ class ShelfConfiguration(TimestampMixin, Base):
             "camera_id",
             "product_id",
             name="uq_shelf_configurations_camera_product",
+        ),
+        CheckConstraint(
+            "shelf_capacity > 0",
+            name="ck_shelf_configurations_shelf_capacity_positive",
         ),
         CheckConstraint(
             "low_stock_threshold >= 0 AND low_stock_threshold <= 100",
@@ -75,6 +80,11 @@ class ShelfConfiguration(TimestampMixin, Base):
         JSONB,
         nullable=False,
         default=dict,
+    )
+
+    shelf_capacity: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
     )
 
     low_stock_threshold: Mapped[float] = mapped_column(

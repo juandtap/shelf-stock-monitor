@@ -71,14 +71,15 @@ def test_process_detection_creates_stock_observation(
         image=image,
         camera_id=camera.id,
         product_id=product.id,
+        shelf_capacity=4,
     )
 
     assert observation.camera_id == camera.id
     assert observation.product_id == product.id
 
     assert observation.detected_units == 3
-    assert observation.shelf_capacity == 6
-    assert observation.stock_percentage == 50.0
+    assert observation.shelf_capacity == 4
+    assert observation.stock_percentage == 75.0
     assert observation.detector_name == "fake_detector"
 
 
@@ -102,6 +103,8 @@ def test_service_accepts_stock_detector_protocol(
         image=image,
         camera_id=camera.id,
         product_id=product.id,
+        shelf_capacity=4,
     )
 
     assert observation.detector_name == "fake_detector"
+    assert observation.shelf_capacity == 4
