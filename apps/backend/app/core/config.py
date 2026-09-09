@@ -44,6 +44,12 @@ class Settings(BaseSettings):
         default=10.0,
         gt=0,
     )
+    telegram_polling_enabled: bool = False
+    telegram_polling_timeout_seconds: int = Field(
+        default=20,
+        ge=1,
+        le=50,
+    )
 
     mlflow_tracking_uri: str
     mlflow_experiment_name: str
