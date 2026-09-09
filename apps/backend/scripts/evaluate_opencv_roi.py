@@ -18,6 +18,8 @@ DIFFERENCE_THRESHOLD = 20.0
 
 SHELF_CAPACITY = 4
 
+WARMUP_ITERATIONS = 2
+
 
 def create_regions(
     *,
@@ -93,6 +95,7 @@ def main() -> None:
     runner = BenchmarkRunner(
         detector=detector,
         samples_directory=SAMPLES_DIRECTORY,
+        warmup_iterations=WARMUP_ITERATIONS,
     )
 
     samples = create_samples()
@@ -149,7 +152,9 @@ def main() -> None:
             "difference_threshold": DIFFERENCE_THRESHOLD,
             "shelf_capacity": SHELF_CAPACITY,
             "reference_image": str(REFERENCE_IMAGE),
+            "warmup_iterations": WARMUP_ITERATIONS,
         },
+        run_name="opencv-roi",
     )
 
     print(f"MLflow run ID: {run_id}")

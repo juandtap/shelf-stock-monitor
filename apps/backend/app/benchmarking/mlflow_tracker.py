@@ -17,10 +17,14 @@ class MLflowBenchmarkTracker:
         experiment_name: str,
     ) -> None:
         if not tracking_uri.strip():
-            raise ValueError("tracking_uri cannot be empty.")
+            raise ValueError(
+                "tracking_uri cannot be empty.",
+            )
 
         if not experiment_name.strip():
-            raise ValueError("experiment_name cannot be empty.")
+            raise ValueError(
+                "experiment_name cannot be empty.",
+            )
 
         self._tracking_uri = tracking_uri
         self._experiment_name = experiment_name
@@ -30,21 +34,31 @@ class MLflowBenchmarkTracker:
         *,
         summary: BenchmarkSummary,
         results: list[BenchmarkResult],
-        parameters: Mapping[str, str | int | float | bool],
+        parameters: Mapping[
+            str,
+            str | int | float | bool,
+        ],
+        run_name: str | None = None,
     ) -> str:
         if not results:
-            raise ValueError("results cannot be empty.")
+            raise ValueError(
+                "results cannot be empty.",
+            )
 
-        mlflow.set_tracking_uri(self._tracking_uri)
+        mlflow.set_tracking_uri(
+            self._tracking_uri,
+        )
 
         mlflow.set_experiment(
             self._experiment_name,
         )
 
         with mlflow.start_run(
-            run_name=summary.detector_name,
+            run_name=run_name or summary.detector_name,
         ) as run:
-            mlflow.log_params(dict(parameters))
+            mlflow.log_params(
+                dict(parameters),
+            )
 
             mlflow.log_metrics(
                 {
@@ -69,4 +83,7 @@ class MLflowBenchmarkTracker:
                     step=index,
                 )
 
-            return cast(str, run.info.run_id)
+            return cast(
+                str,
+                run.info.run_id,
+            )
