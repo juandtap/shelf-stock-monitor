@@ -19,5 +19,4 @@ class RegionOfInterest:
 @dataclass(frozen=True)
 class StockDetectionResult:
     detected_units: int
-    shelf_capacity: int
     detector_name: str

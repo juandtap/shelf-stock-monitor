@@ -36,7 +36,6 @@ def test_detects_occupied_slots() -> None:
     result = detector.detect(current_image)
 
     assert result.detected_units == 2
-    assert result.shelf_capacity == 4
     assert result.detector_name == "opencv_roi"
 
 
@@ -49,10 +48,12 @@ def test_detects_empty_shelf() -> None:
         difference_threshold=30.0,
     )
 
-    result = detector.detect(empty_reference.copy())
+    result = detector.detect(
+        empty_reference.copy(),
+    )
 
     assert result.detected_units == 0
-    assert result.shelf_capacity == 4
+    assert result.detector_name == "opencv_roi"
 
 
 def test_detects_full_shelf() -> None:
@@ -73,7 +74,7 @@ def test_detects_full_shelf() -> None:
     result = detector.detect(current_image)
 
     assert result.detected_units == 4
-    assert result.shelf_capacity == 4
+    assert result.detector_name == "opencv_roi"
 
 
 def test_rejects_roi_outside_image() -> None:
@@ -115,7 +116,9 @@ def test_rejects_different_image_dimensions() -> None:
     )
 
     try:
-        detector.detect(different_image)
+        detector.detect(
+            different_image,
+        )
     except ValueError as error:
         assert str(error) == "Input image dimensions must match the empty reference image."
     else:

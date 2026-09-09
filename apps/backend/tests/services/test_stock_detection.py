@@ -15,15 +15,19 @@ class FakeDetector:
     def name(self) -> str:
         return "fake_detector"
 
-    def detect(self, image: ImageArray) -> StockDetectionResult:
+    def detect(
+        self,
+        image: ImageArray,
+    ) -> StockDetectionResult:
         return StockDetectionResult(
             detected_units=3,
-            shelf_capacity=6,
             detector_name=self.name,
         )
 
 
-def create_camera(db_session: Session) -> Camera:
+def create_camera(
+    db_session: Session,
+) -> Camera:
     camera = Camera(
         name=f"Detection Camera {uuid.uuid4()}",
         location="Test Shelf",
@@ -36,7 +40,9 @@ def create_camera(db_session: Session) -> Camera:
     return camera
 
 
-def create_product(db_session: Session) -> Product:
+def create_product(
+    db_session: Session,
+) -> Product:
     product = Product(
         name="Detection Test Product",
         sku=f"DETECTION-{uuid.uuid4()}",
@@ -52,8 +58,12 @@ def create_product(db_session: Session) -> Product:
 def test_process_detection_creates_stock_observation(
     db_session: Session,
 ) -> None:
-    camera = create_camera(db_session)
-    product = create_product(db_session)
+    camera = create_camera(
+        db_session,
+    )
+    product = create_product(
+        db_session,
+    )
 
     detector = FakeDetector()
 
@@ -86,8 +96,12 @@ def test_process_detection_creates_stock_observation(
 def test_service_accepts_stock_detector_protocol(
     db_session: Session,
 ) -> None:
-    camera = create_camera(db_session)
-    product = create_product(db_session)
+    camera = create_camera(
+        db_session,
+    )
+    product = create_product(
+        db_session,
+    )
 
     service = StockDetectionService(
         db=db_session,

@@ -16,11 +16,9 @@ class FakeStockDetector:
         self,
         *,
         detected_units: int,
-        shelf_capacity: int,
         name: str = "fake_detector",
     ) -> None:
         self._detected_units = detected_units
-        self._shelf_capacity = shelf_capacity
         self._name = name
 
     @property
@@ -33,7 +31,6 @@ class FakeStockDetector:
     ) -> StockDetectionResult:
         return StockDetectionResult(
             detected_units=self._detected_units,
-            shelf_capacity=self._shelf_capacity,
             detector_name=self._name,
         )
 
@@ -43,10 +40,8 @@ class SequenceStockDetector:
         self,
         *,
         detections: list[int],
-        shelf_capacity: int,
     ) -> None:
         self._detections = detections
-        self._shelf_capacity = shelf_capacity
         self._index = 0
 
     @property
@@ -63,7 +58,6 @@ class SequenceStockDetector:
 
         return StockDetectionResult(
             detected_units=detected_units,
-            shelf_capacity=self._shelf_capacity,
             detector_name=self.name,
         )
 
@@ -90,11 +84,12 @@ def test_runner_calculates_zero_error_for_exact_detection(
 ) -> None:
     image_path = tmp_path / "sample.png"
 
-    create_test_image(image_path)
+    create_test_image(
+        image_path,
+    )
 
     detector = FakeStockDetector(
         detected_units=2,
-        shelf_capacity=4,
     )
 
     runner = BenchmarkRunner(
@@ -144,11 +139,12 @@ def test_runner_calculates_units_mae(
     ]
 
     for filename in filenames:
-        create_test_image(tmp_path / filename)
+        create_test_image(
+            tmp_path / filename,
+        )
 
     detector = SequenceStockDetector(
         detections=[1, 1, 4],
-        shelf_capacity=4,
     )
 
     runner = BenchmarkRunner(
@@ -178,7 +174,9 @@ def test_runner_calculates_units_mae(
         samples=samples,
     )
 
-    assert summary.units_mae == pytest.approx(2 / 3)
+    assert summary.units_mae == pytest.approx(
+        2 / 3,
+    )
 
 
 def test_runner_calculates_stock_percentage_mae(
@@ -190,11 +188,12 @@ def test_runner_calculates_stock_percentage_mae(
     ]
 
     for filename in filenames:
-        create_test_image(tmp_path / filename)
+        create_test_image(
+            tmp_path / filename,
+        )
 
     detector = SequenceStockDetector(
         detections=[1, 4],
-        shelf_capacity=4,
     )
 
     runner = BenchmarkRunner(
@@ -219,7 +218,9 @@ def test_runner_calculates_stock_percentage_mae(
         samples=samples,
     )
 
-    assert summary.stock_percentage_mae == pytest.approx(37.5)
+    assert summary.stock_percentage_mae == pytest.approx(
+        37.5,
+    )
 
 
 def test_runner_rejects_empty_dataset(
@@ -227,7 +228,6 @@ def test_runner_rejects_empty_dataset(
 ) -> None:
     detector = FakeStockDetector(
         detected_units=0,
-        shelf_capacity=4,
     )
 
     runner = BenchmarkRunner(
@@ -254,11 +254,12 @@ def test_runner_calculates_latency_percentiles(
     ]
 
     for filename in filenames:
-        create_test_image(tmp_path / filename)
+        create_test_image(
+            tmp_path / filename,
+        )
 
     detector = SequenceStockDetector(
         detections=[0, 1, 2],
-        shelf_capacity=4,
     )
 
     runner = BenchmarkRunner(
@@ -290,11 +291,12 @@ def test_runner_works_with_stock_detector_protocol(
 ) -> None:
     image_path = tmp_path / "sample.png"
 
-    create_test_image(image_path)
+    create_test_image(
+        image_path,
+    )
 
     detector = FakeStockDetector(
         detected_units=3,
-        shelf_capacity=4,
         name="custom_detector",
     )
 

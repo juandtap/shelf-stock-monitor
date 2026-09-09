@@ -5,10 +5,14 @@ import cv2
 from pydantic import TypeAdapter
 
 from app.db.models.shelf_configuration import ShelfConfiguration
-from app.schemas.shelf_configuration import OpenCVROIConfiguration
+from app.schemas.shelf_configuration import (
+    OpenCVROIConfiguration,
+    YOLOConfiguration,
+)
 from app.vision.detector import ImageArray, StockDetector
 from app.vision.models import RegionOfInterest
 from app.vision.opencv_roi import OpenCVROIDetector
+from app.vision.yolo import YOLOStockDetector
 
 
 class UnsupportedDetectorError(Exception):
@@ -29,21 +33,36 @@ class StockDetectorFactory:
         configuration: ShelfConfiguration,
     ) -> StockDetector:
         if configuration.detector_type == "opencv_roi":
-            return self._create_opencv_roi_detector(configuration)
+            return self._create_opencv_roi_detector(
+                configuration,
+            )
 
-        raise UnsupportedDetectorError(f"Unsupported detector type: {configuration.detector_type}")
+        if configuration.detector_type == "yolo":
+            return self._create_yolo_detector(
+                configuration,
+            )
+
+        raise UnsupportedDetectorError(
+            f"Unsupported detector type: {configuration.detector_type}",
+        )
 
     def _create_opencv_roi_detector(
         self,
         configuration: ShelfConfiguration,
     ) -> OpenCVROIDetector:
         if configuration.reference_image_path is None:
-            raise ReferenceImageNotFoundError("Reference image path is not configured.")
+            raise ReferenceImageNotFoundError(
+                "Reference image path is not configured.",
+            )
 
-        reference_path = Path(configuration.reference_image_path)
+        reference_path = Path(
+            configuration.reference_image_path,
+        )
 
         if not reference_path.is_file():
-            raise ReferenceImageNotFoundError(f"Reference image not found: {reference_path}")
+            raise ReferenceImageNotFoundError(
+                f"Reference image not found: {reference_path}",
+            )
 
         reference_image_raw = cv2.imread(
             str(reference_path),
@@ -51,14 +70,20 @@ class StockDetectorFactory:
         )
 
         if reference_image_raw is None:
-            raise InvalidReferenceImageError(f"Unable to read reference image: {reference_path}")
+            raise InvalidReferenceImageError(
+                f"Unable to read reference image: {reference_path}",
+            )
 
         reference_image = cast(
             ImageArray,
             reference_image_raw,
         )
 
-        config = TypeAdapter(OpenCVROIConfiguration).validate_python(configuration.detector_config)
+        config = TypeAdapter(
+            OpenCVROIConfiguration,
+        ).validate_python(
+            configuration.detector_config,
+        )
 
         regions = [
             RegionOfInterest(
@@ -74,4 +99,23 @@ class StockDetectorFactory:
             empty_reference=reference_image,
             regions=regions,
             difference_threshold=config.difference_threshold,
+        )
+
+    def _create_yolo_detector(
+        self,
+        configuration: ShelfConfiguration,
+    ) -> YOLOStockDetector:
+        config = TypeAdapter(
+            YOLOConfiguration,
+        ).validate_python(
+            configuration.detector_config,
+        )
+
+        return YOLOStockDetector(
+            model_path=config.model_path,
+            confidence_threshold=config.confidence_threshold,
+            iou_threshold=config.iou_threshold,
+            image_size=config.image_size,
+            class_ids=config.class_ids,
+            device=config.device,
         )
