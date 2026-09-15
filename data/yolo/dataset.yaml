@@ -1,0 +1,10 @@
+path: /home/diego/Projects/shelf-stock-monitor/data/yolo
+
+train: images/train
+val: images/val
+test: images/test
+
+names:
+  0: coca_cola
+  1: water
+  2: shampoo

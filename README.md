@@ -1137,3 +1137,53 @@ management.
 
 These features are intentionally deferred until the core monitoring,
 computer-vision, alerting, and benchmarking workflows are complete.
+
+## Update initial config
+
+The new post request for shelf-configuration, replace camera and product id
+
+```
+
+curl -X POST \
+  "http://localhost:8000/shelf-configurations" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "camera_id": "c4dd212f-4bb0-4ae1-bd31-43a444f0c0b8",
+    "product_id": "f0047ab3-e57c-4687-b449-519bb646e3f4",
+    "detector_type": "opencv_roi",
+    "reference_image_path": "../../data/references/shelf_01_empty.png",
+    "detector_config": {
+      "difference_threshold": 20.0,
+      "regions": [
+        {
+          "x": 20,
+          "y": 94,
+          "width": 378,
+          "height": 639
+        },
+        {
+          "x": 438,
+          "y": 94,
+          "width": 378,
+          "height": 639
+        },
+        {
+          "x": 856,
+          "y": 94,
+          "width": 378,
+          "height": 639
+        },
+        {
+          "x": 1274,
+          "y": 94,
+          "width": 378,
+          "height": 639
+        }
+      ]
+    },
+    "shelf_capacity": 4,
+    "low_stock_threshold": 50.0
+  }'
+
+
+```

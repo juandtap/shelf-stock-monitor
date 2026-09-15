@@ -41,6 +41,7 @@ mlartifacts/
 data/raw/
 data/processed/
 data/generated/
+data/yolo/images
 
 # Models / weights
 *.pt
