@@ -2,15 +2,9 @@ from pathlib import Path
 
 import cv2
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
-ASSETS_DIRECTORY = (
-    PROJECT_ROOT
-    / "data"
-    / "synthetic"
-    / "assets"
-)
+ASSETS_DIRECTORY = PROJECT_ROOT / "data" / "synthetic" / "assets"
 
 EXPECTED_ASSETS = (
     "shelf_2x4.png",
@@ -41,11 +35,7 @@ def inspect_asset(filename: str) -> None:
 
     height, width = image.shape[:2]
 
-    channels = (
-        image.shape[2]
-        if image.ndim == 3
-        else 1
-    )
+    channels = image.shape[2] if image.ndim == 3 else 1
 
     has_alpha = channels == 4
 
@@ -59,21 +49,13 @@ def inspect_asset(filename: str) -> None:
     if has_alpha:
         alpha_channel = image[:, :, 3]
 
-        transparent_pixels = int(
-            (alpha_channel == 0).sum()
-        )
+        transparent_pixels = int((alpha_channel == 0).sum())
 
         total_pixels = alpha_channel.size
 
-        transparent_percentage = (
-            transparent_pixels
-            / total_pixels
-        ) * 100.0
+        transparent_percentage = (transparent_pixels / total_pixels) * 100.0
 
-        print(
-            "  transparent pixels: "
-            f"{transparent_percentage:.2f}%"
-        )
+        print(f"  transparent pixels: {transparent_percentage:.2f}%")
 
     print()
 

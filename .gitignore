@@ -37,11 +37,18 @@ mlflow.db
 mlruns/
 mlartifacts/
 
-# Local datasets
+# Local / generated datasets
 data/raw/
 data/processed/
 data/generated/
-data/yolo/images
+data/yolo/images/
+data/yolo/labels/
+data/yolo/diagnostics/
+data/yolo/dataset.yaml
+data/yolo/runs/
+
+# Generated ML artifacts
+artifacts/
 
 # Models / weights
 *.pt

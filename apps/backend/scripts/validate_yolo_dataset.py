@@ -3,7 +3,6 @@ from pathlib import Path
 
 import cv2
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 DATASET_DIRECTORY = PROJECT_ROOT / "data" / "yolo"
 
@@ -40,59 +39,34 @@ def validate_yolo_line(
     parts = line.split()
 
     if len(parts) != 5:
-        raise ValueError(
-            f"{label_path}:{line_number}: "
-            f"expected 5 values, found {len(parts)}"
-        )
+        raise ValueError(f"{label_path}:{line_number}: expected 5 values, found {len(parts)}")
 
     try:
         class_id = int(parts[0])
     except ValueError as exc:
-        raise ValueError(
-            f"{label_path}:{line_number}: "
-            f"invalid class id: {parts[0]}"
-        ) from exc
+        raise ValueError(f"{label_path}:{line_number}: invalid class id: {parts[0]}") from exc
 
     if class_id not in VALID_CLASS_IDS:
-        raise ValueError(
-            f"{label_path}:{line_number}: "
-            f"unknown class id: {class_id}"
-        )
+        raise ValueError(f"{label_path}:{line_number}: unknown class id: {class_id}")
 
     try:
-        center_x, center_y, width, height = (
-            float(value)
-            for value in parts[1:]
-        )
+        center_x, center_y, width, height = (float(value) for value in parts[1:])
     except ValueError as exc:
         raise ValueError(
-            f"{label_path}:{line_number}: "
-            "bounding box contains non-numeric values"
+            f"{label_path}:{line_number}: bounding box contains non-numeric values"
         ) from exc
 
     if not 0.0 <= center_x <= 1.0:
-        raise ValueError(
-            f"{label_path}:{line_number}: "
-            f"center_x outside [0, 1]: {center_x}"
-        )
+        raise ValueError(f"{label_path}:{line_number}: center_x outside [0, 1]: {center_x}")
 
     if not 0.0 <= center_y <= 1.0:
-        raise ValueError(
-            f"{label_path}:{line_number}: "
-            f"center_y outside [0, 1]: {center_y}"
-        )
+        raise ValueError(f"{label_path}:{line_number}: center_y outside [0, 1]: {center_y}")
 
     if not 0.0 < width <= 1.0:
-        raise ValueError(
-            f"{label_path}:{line_number}: "
-            f"width outside (0, 1]: {width}"
-        )
+        raise ValueError(f"{label_path}:{line_number}: width outside (0, 1]: {width}")
 
     if not 0.0 < height <= 1.0:
-        raise ValueError(
-            f"{label_path}:{line_number}: "
-            f"height outside (0, 1]: {height}"
-        )
+        raise ValueError(f"{label_path}:{line_number}: height outside (0, 1]: {height}")
 
     x1 = center_x - (width / 2.0)
     y1 = center_y - (height / 2.0)
@@ -101,16 +75,8 @@ def validate_yolo_line(
 
     tolerance = 1e-5
 
-    if (
-        x1 < -tolerance
-        or y1 < -tolerance
-        or x2 > 1.0 + tolerance
-        or y2 > 1.0 + tolerance
-    ):
-        raise ValueError(
-            f"{label_path}:{line_number}: "
-            "bounding box extends outside image"
-        )
+    if x1 < -tolerance or y1 < -tolerance or x2 > 1.0 + tolerance or y2 > 1.0 + tolerance:
+        raise ValueError(f"{label_path}:{line_number}: bounding box extends outside image")
 
     return class_id
 
@@ -124,16 +90,12 @@ def validate_image(
     )
 
     if image is None:
-        raise ValueError(
-            f"Unable to read image: {image_path}"
-        )
+        raise ValueError(f"Unable to read image: {image_path}")
 
     height, width = image.shape[:2]
 
     if width <= 0 or height <= 0:
-        raise ValueError(
-            f"Invalid image dimensions: {image_path}"
-        )
+        raise ValueError(f"Invalid image dimensions: {image_path}")
 
 
 def get_images(
@@ -142,11 +104,7 @@ def get_images(
     return sorted(
         path
         for path in directory.iterdir()
-        if (
-            path.is_file()
-            and path.suffix.lower()
-            in VALID_IMAGE_EXTENSIONS
-        )
+        if (path.is_file() and path.suffix.lower() in VALID_IMAGE_EXTENSIONS)
     )
 
 
@@ -155,73 +113,39 @@ def validate_split(
     expected_images: int,
     class_counts: dict[int, int],
 ) -> SplitStatistics:
-    image_directory = (
-        DATASET_DIRECTORY
-        / "images"
-        / split
-    )
+    image_directory = DATASET_DIRECTORY / "images" / split
 
-    label_directory = (
-        DATASET_DIRECTORY
-        / "labels"
-        / split
-    )
+    label_directory = DATASET_DIRECTORY / "labels" / split
 
     if not image_directory.is_dir():
-        raise ValueError(
-            f"Missing image directory: {image_directory}"
-        )
+        raise ValueError(f"Missing image directory: {image_directory}")
 
     if not label_directory.is_dir():
-        raise ValueError(
-            f"Missing label directory: {label_directory}"
-        )
+        raise ValueError(f"Missing label directory: {label_directory}")
 
     images = get_images(image_directory)
 
-    labels = sorted(
-        path
-        for path in label_directory.glob("*.txt")
-        if path.is_file()
-    )
+    labels = sorted(path for path in label_directory.glob("*.txt") if path.is_file())
 
     if len(images) != expected_images:
-        raise ValueError(
-            f"{split}: expected {expected_images} images, "
-            f"found {len(images)}"
-        )
+        raise ValueError(f"{split}: expected {expected_images} images, found {len(images)}")
 
     if len(labels) != expected_images:
-        raise ValueError(
-            f"{split}: expected {expected_images} labels, "
-            f"found {len(labels)}"
-        )
+        raise ValueError(f"{split}: expected {expected_images} labels, found {len(labels)}")
 
-    image_stems = {
-        path.stem
-        for path in images
-    }
+    image_stems = {path.stem for path in images}
 
-    label_stems = {
-        path.stem
-        for path in labels
-    }
+    label_stems = {path.stem for path in labels}
 
     missing_labels = image_stems - label_stems
 
     if missing_labels:
-        raise ValueError(
-            f"{split}: images without labels: "
-            f"{sorted(missing_labels)}"
-        )
+        raise ValueError(f"{split}: images without labels: {sorted(missing_labels)}")
 
     orphan_labels = label_stems - image_stems
 
     if orphan_labels:
-        raise ValueError(
-            f"{split}: labels without images: "
-            f"{sorted(orphan_labels)}"
-        )
+        raise ValueError(f"{split}: labels without images: {sorted(orphan_labels)}")
 
     statistics = SplitStatistics(
         images=len(images),
@@ -231,14 +155,9 @@ def validate_split(
     for image_path in images:
         validate_image(image_path)
 
-        label_path = (
-            label_directory
-            / f"{image_path.stem}.txt"
-        )
+        label_path = label_directory / f"{image_path.stem}.txt"
 
-        content = label_path.read_text(
-            encoding="utf-8"
-        ).strip()
+        content = label_path.read_text(encoding="utf-8").strip()
 
         if not content:
             statistics.empty_images += 1
@@ -261,29 +180,19 @@ def validate_split(
 
 
 def validate_dataset_yaml() -> None:
-    dataset_yaml = (
-        DATASET_DIRECTORY
-        / "dataset.yaml"
-    )
+    dataset_yaml = DATASET_DIRECTORY / "dataset.yaml"
 
     if not dataset_yaml.is_file():
-        raise ValueError(
-            f"Missing dataset.yaml: {dataset_yaml}"
-        )
+        raise ValueError(f"Missing dataset.yaml: {dataset_yaml}")
 
 
 def main() -> None:
     if not DATASET_DIRECTORY.is_dir():
-        raise ValueError(
-            f"Dataset not found: {DATASET_DIRECTORY}"
-        )
+        raise ValueError(f"Dataset not found: {DATASET_DIRECTORY}")
 
     validate_dataset_yaml()
 
-    class_counts = {
-        class_id: 0
-        for class_id in VALID_CLASS_IDS
-    }
+    class_counts = {class_id: 0 for class_id in VALID_CLASS_IDS}
 
     split_statistics: dict[
         str,
@@ -297,20 +206,11 @@ def main() -> None:
             class_counts=class_counts,
         )
 
-    total_images = sum(
-        statistics.images
-        for statistics in split_statistics.values()
-    )
+    total_images = sum(statistics.images for statistics in split_statistics.values())
 
-    total_objects = sum(
-        statistics.objects
-        for statistics in split_statistics.values()
-    )
+    total_objects = sum(statistics.objects for statistics in split_statistics.values())
 
-    total_empty = sum(
-        statistics.empty_images
-        for statistics in split_statistics.values()
-    )
+    total_empty = sum(statistics.empty_images for statistics in split_statistics.values())
 
     print()
     print("YOLO dataset validation")
@@ -334,10 +234,7 @@ def main() -> None:
     print("Objects per class")
 
     for class_id, class_name in CLASS_NAMES.items():
-        print(
-            f"{class_id} {class_name:<12}: "
-            f"{class_counts[class_id]}"
-        )
+        print(f"{class_id} {class_name:<12}: {class_counts[class_id]}")
 
     print()
     print("Validation PASSED")

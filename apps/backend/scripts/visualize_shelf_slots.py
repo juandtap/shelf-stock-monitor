@@ -4,28 +4,13 @@ import cv2
 import numpy as np
 from numpy.typing import NDArray
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
-SHELF_IMAGE_PATH = (
-    PROJECT_ROOT
-    / "data"
-    / "synthetic"
-    / "assets"
-    / "shelf_2x4.png"
-)
+SHELF_IMAGE_PATH = PROJECT_ROOT / "data" / "synthetic" / "assets" / "shelf_2x4.png"
 
-OUTPUT_DIRECTORY = (
-    PROJECT_ROOT
-    / "data"
-    / "synthetic"
-    / "diagnostics"
-)
+OUTPUT_DIRECTORY = PROJECT_ROOT / "data" / "synthetic" / "diagnostics"
 
-OUTPUT_IMAGE_PATH = (
-    OUTPUT_DIRECTORY
-    / "shelf_2x4_grid.png"
-)
+OUTPUT_IMAGE_PATH = OUTPUT_DIRECTORY / "shelf_2x4_grid.png"
 
 ROWS = 2
 COLUMNS = 4
@@ -41,9 +26,7 @@ def load_image(path: Path) -> ImageArray:
     )
 
     if image is None:
-        raise ValueError(
-            f"Unable to read image: {path}"
-        )
+        raise ValueError(f"Unable to read image: {path}")
 
     return image
 
@@ -90,12 +73,8 @@ def draw_grid(
             x1 = round(column * slot_width)
             y1 = round(row * slot_height)
 
-            x2 = round(
-                (column + 1) * slot_width
-            )
-            y2 = round(
-                (row + 1) * slot_height
-            )
+            x2 = round((column + 1) * slot_width)
+            y2 = round((row + 1) * slot_height)
 
             center_x = (x1 + x2) // 2
             center_y = (y1 + y2) // 2
@@ -150,13 +129,9 @@ def draw_grid(
 
 
 def main() -> None:
-    image = load_image(
-        SHELF_IMAGE_PATH
-    )
+    image = load_image(SHELF_IMAGE_PATH)
 
-    diagnostic_image = draw_grid(
-        image
-    )
+    diagnostic_image = draw_grid(image)
 
     OUTPUT_DIRECTORY.mkdir(
         parents=True,
@@ -169,9 +144,7 @@ def main() -> None:
     )
 
     if not success:
-        raise RuntimeError(
-            "Unable to write diagnostic image."
-        )
+        raise RuntimeError("Unable to write diagnostic image.")
 
     height, width = image.shape[:2]
 
@@ -181,12 +154,7 @@ def main() -> None:
     print(f"Image: {SHELF_IMAGE_PATH}")
     print(f"Resolution: {width}x{height}")
     print(f"Grid: {ROWS} rows x {COLUMNS} columns")
-    print(
-        "Approximate slot size: "
-        f"{width / COLUMNS:.2f}"
-        "x"
-        f"{height / ROWS:.2f}px"
-    )
+    print(f"Approximate slot size: {width / COLUMNS:.2f}x{height / ROWS:.2f}px")
     print(f"Output: {OUTPUT_IMAGE_PATH}")
 
 

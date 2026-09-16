@@ -5,7 +5,6 @@ import cv2
 import numpy as np
 from numpy.typing import NDArray
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
 ASSETS_DIRECTORY = PROJECT_ROOT / "data" / "synthetic" / "assets"
@@ -92,9 +91,7 @@ def load_product(path: Path) -> ImageArray:
         raise ValueError(f"Unable to read product image: {path}")
 
     if image.ndim != 3 or image.shape[2] != 4:
-        raise ValueError(
-            f"Product image must contain an alpha channel: {path}"
-        )
+        raise ValueError(f"Product image must contain an alpha channel: {path}")
 
     return image
 
@@ -154,25 +151,15 @@ def place_product(
     y1 = y2 - product_height
     x2 = x1 + product_width
 
-    if (
-        x1 < 0
-        or y1 < 0
-        or x2 > background.shape[1]
-        or y2 > background.shape[0]
-    ):
+    if x1 < 0 or y1 < 0 or x2 > background.shape[1] or y2 > background.shape[0]:
         raise ValueError("Product placement exceeds image boundaries.")
 
     foreground = product[:, :, :3].astype(np.float32)
-    alpha = (
-        product[:, :, 3].astype(np.float32) / 255.0
-    )[:, :, np.newaxis]
+    alpha = (product[:, :, 3].astype(np.float32) / 255.0)[:, :, np.newaxis]
 
     region = background[y1:y2, x1:x2].astype(np.float32)
 
-    blended = (
-        foreground * alpha
-        + region * (1.0 - alpha)
-    )
+    blended = foreground * alpha + region * (1.0 - alpha)
 
     background[y1:y2, x1:x2] = np.clip(
         blended,
@@ -221,25 +208,18 @@ def draw_bounding_box(
 def main() -> None:
     shelf = load_shelf(SHELF_PATH)
 
-    products = {
-        name: load_product(path)
-        for name, path in PRODUCT_PATHS.items()
-    }
+    products = {name: load_product(path) for name, path in PRODUCT_PATHS.items()}
 
     bounding_boxes: list[tuple[str, BoundingBox]] = []
 
-    for slot_index, (slot, product_name) in enumerate(
-        zip(SLOTS, SLOT_PRODUCTS, strict=True)
-    ):
+    for slot_index, (slot, product_name) in enumerate(zip(SLOTS, SLOT_PRODUCTS, strict=True)):
         bounding_box = place_product(
             background=shelf,
             product=products[product_name],
             slot=slot,
         )
 
-        bounding_boxes.append(
-            (product_name, bounding_box)
-        )
+        bounding_boxes.append((product_name, bounding_box))
 
         draw_bounding_box(
             shelf,
@@ -258,17 +238,13 @@ def main() -> None:
     )
 
     if not success:
-        raise RuntimeError(
-            f"Unable to write output image: {OUTPUT_PATH}"
-        )
+        raise RuntimeError(f"Unable to write output image: {OUTPUT_PATH}")
 
     print()
     print("Synthetic composition test")
     print("=" * 60)
 
-    for slot_index, (product_name, box) in enumerate(
-        bounding_boxes
-    ):
+    for slot_index, (product_name, box) in enumerate(bounding_boxes):
         print(
             f"slot={slot_index} "
             f"product={product_name:<10} "

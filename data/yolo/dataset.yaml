@@ -1,4 +1,4 @@
-path: /home/diego/Projects/shelf-stock-monitor/data/yolo
+path: /home/diego/projects/shelf-stock-monitor/data/yolo
 
 train: images/train
 val: images/val
