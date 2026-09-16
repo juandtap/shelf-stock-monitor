@@ -10,14 +10,14 @@ from app.core.config import get_settings
 from app.vision.models import RegionOfInterest
 from app.vision.opencv_roi import OpenCVROIDetector
 
-REFERENCE_IMAGE = Path("../../data/references/shelf_01_empty.png")
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
-SAMPLES_DIRECTORY = Path("../../data/samples")
+REFERENCE_IMAGE = PROJECT_ROOT / "data" / "references" / "shelf_01_empty.png"
+
+SAMPLES_DIRECTORY = PROJECT_ROOT / "data" / "samples"
 
 DIFFERENCE_THRESHOLD = 20.0
-
 SHELF_CAPACITY = 4
-
 WARMUP_ITERATIONS = 2
 
 
