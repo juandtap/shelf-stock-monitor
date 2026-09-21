@@ -24,7 +24,6 @@ class Settings(BaseSettings):
         default=30,
         ge=1,
     )
-    monitoring_image_path: str | None = None
 
     notification_provider: Literal["logging", "telegram"] = "logging"
 

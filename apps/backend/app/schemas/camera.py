@@ -16,6 +16,25 @@ class CameraCreate(BaseModel):
     )
 
 
+class CameraUpdate(BaseModel):
+    name: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=100,
+    )
+    location: str | None = Field(
+        default=None,
+        max_length=255,
+    )
+    source_type: Literal["file"] | None = None
+    source_uri: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=1000,
+    )
+    is_active: bool | None = None
+
+
 class CameraResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
