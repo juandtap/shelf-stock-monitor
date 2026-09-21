@@ -2,6 +2,9 @@ from fastapi import APIRouter
 
 from app.api.routes.cameras import router as cameras_router
 from app.api.routes.inventory import router as inventory_router
+from app.api.routes.model_class_mappings import (
+    router as model_class_mappings_router,
+)
 from app.api.routes.products import router as products_router
 from app.api.routes.shelf_configurations import (
     router as shelf_configurations_router,
@@ -19,3 +22,4 @@ api_router.include_router(stock_observations_router)
 api_router.include_router(shelf_configurations_router)
 api_router.include_router(stock_alerts_router)
 api_router.include_router(inventory_router)
+api_router.include_router(model_class_mappings_router)
