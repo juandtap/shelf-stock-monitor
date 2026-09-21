@@ -7,6 +7,11 @@ import cv2
 import numpy as np
 from numpy.typing import NDArray
 
+from app.vision.shelf_geometry import (
+    SYNTHETIC_SHELF_SLOTS,
+    ShelfSlot,
+)
+
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
 ASSETS_DIRECTORY = PROJECT_ROOT / "data" / "synthetic" / "assets"
@@ -34,7 +39,7 @@ TEST_IMAGES = 30
 RANDOM_SEED = 42
 
 MIN_OCCUPIED_SLOTS = 0
-MAX_OCCUPIED_SLOTS = 8
+MAX_OCCUPIED_SLOTS = len(SYNTHETIC_SHELF_SLOTS)
 
 MIN_SCALE_FACTOR = 0.85
 MAX_SCALE_FACTOR = 1.00
@@ -52,39 +57,11 @@ ImageArray = NDArray[np.uint8]
 
 
 @dataclass(frozen=True)
-class Slot:
-    x1: int
-    y1: int
-    x2: int
-    y2: int
-
-    @property
-    def width(self) -> int:
-        return self.x2 - self.x1
-
-    @property
-    def height(self) -> int:
-        return self.y2 - self.y1
-
-
-@dataclass(frozen=True)
 class BoundingBox:
     x1: int
     y1: int
     x2: int
     y2: int
-
-
-SLOTS = (
-    Slot(135, 100, 495, 385),
-    Slot(535, 100, 860, 385),
-    Slot(870, 100, 1235, 385),
-    Slot(1240, 100, 1590, 385),
-    Slot(135, 460, 495, 685),
-    Slot(535, 460, 860, 685),
-    Slot(870, 460, 1235, 685),
-    Slot(1240, 460, 1590, 685),
-)
 
 
 def load_image(
@@ -99,7 +76,10 @@ def load_image(
     return image
 
 
-def load_assets() -> tuple[ImageArray, dict[int, ImageArray]]:
+def load_assets() -> tuple[
+    ImageArray,
+    dict[int, ImageArray],
+]:
     shelf = load_image(
         SHELF_PATH,
         cv2.IMREAD_COLOR,
@@ -136,12 +116,15 @@ def crop_to_visible_content(
     y1 = int(visible_y.min())
     y2 = int(visible_y.max()) + 1
 
-    return image[y1:y2, x1:x2]
+    return image[
+        y1:y2,
+        x1:x2,
+    ]
 
 
 def resize_product(
     product: ImageArray,
-    slot: Slot,
+    slot: ShelfSlot,
     scale_factor: float,
 ) -> ImageArray:
     product_height, product_width = product.shape[:2]
@@ -176,7 +159,7 @@ def resize_product(
 def place_product(
     background: ImageArray,
     product: ImageArray,
-    slot: Slot,
+    slot: ShelfSlot,
     rng: random.Random,
 ) -> BoundingBox:
     scale_factor = rng.uniform(
@@ -219,9 +202,24 @@ def place_product(
     if y1 < slot.y1:
         raise ValueError("Product exceeds the vertical slot boundary.")
 
-    foreground = resized[:, :, :3].astype(np.float32)
+    foreground = resized[
+        :,
+        :,
+        :3,
+    ].astype(np.float32)
 
-    alpha = (resized[:, :, 3].astype(np.float32) / 255.0)[:, :, np.newaxis]
+    alpha = (
+        resized[
+            :,
+            :,
+            3,
+        ].astype(np.float32)
+        / 255.0
+    )[
+        :,
+        :,
+        np.newaxis,
+    ]
 
     region = background[
         y1:y2,
@@ -284,7 +282,10 @@ def draw_diagnostic_box(
         CLASS_NAMES[class_id],
         (
             box.x1,
-            max(20, box.y1 - 8),
+            max(
+                20,
+                box.y1 - 8,
+            ),
         ),
         cv2.FONT_HERSHEY_SIMPLEX,
         0.55,
@@ -312,7 +313,7 @@ def generate_scene(
 
     occupied_slots = set(
         rng.sample(
-            range(len(SLOTS)),
+            range(len(SYNTHETIC_SHELF_SLOTS)),
             occupied_count,
         )
     )
@@ -322,7 +323,7 @@ def generate_scene(
 
     image_height, image_width = scene.shape[:2]
 
-    for slot_index, slot in enumerate(SLOTS):
+    for slot_index, slot in enumerate(SYNTHETIC_SHELF_SLOTS):
         if slot_index not in occupied_slots:
             continue
 
@@ -344,7 +345,12 @@ def generate_scene(
             )
         )
 
-        annotations.append((class_id, box))
+        annotations.append(
+            (
+                class_id,
+                box,
+            )
+        )
 
     return scene, labels, annotations
 
@@ -353,7 +359,11 @@ def prepare_output_directory() -> None:
     if OUTPUT_DIRECTORY.exists():
         shutil.rmtree(OUTPUT_DIRECTORY)
 
-    for split in ("train", "val", "test"):
+    for split in (
+        "train",
+        "val",
+        "test",
+    ):
         (OUTPUT_DIRECTORY / "images" / split).mkdir(
             parents=True,
             exist_ok=True,
@@ -417,6 +427,7 @@ def main() -> None:
     prepare_output_directory()
 
     total_objects = 0
+
     class_counts = {class_id: 0 for class_id in CLASS_NAMES}
 
     empty_images = 0
@@ -439,7 +450,10 @@ def main() -> None:
         success = cv2.imwrite(
             str(image_path),
             scene,
-            [cv2.IMWRITE_JPEG_QUALITY, 95],
+            [
+                cv2.IMWRITE_JPEG_QUALITY,
+                95,
+            ],
         )
 
         if not success:
@@ -491,7 +505,10 @@ def main() -> None:
     print(f"Total objects: {total_objects}")
     print()
 
-    for class_id, class_name in CLASS_NAMES.items():
+    for (
+        class_id,
+        class_name,
+    ) in CLASS_NAMES.items():
         print(f"{class_name:<12}: {class_counts[class_id]} objects")
 
     print()
