@@ -113,7 +113,10 @@ class MonitoringCycleService:
 
             observations.append(observation)
 
-        for camera_id, camera_configurations in yolo_configurations_by_camera.items():
+        for (
+            camera_id,
+            camera_configurations,
+        ) in yolo_configurations_by_camera.items():
             image_path = self._get_image_path(
                 image_paths=image_paths,
                 camera_id=camera_id,
@@ -131,8 +134,10 @@ class MonitoringCycleService:
             )
 
             previous_observations = {
-                configuration.product_id: self._get_previous_observation(
-                    configuration,
+                configuration.product_id: (
+                    self._get_previous_observation(
+                        configuration,
+                    )
                 )
                 for configuration in camera_configurations
             }
@@ -177,7 +182,10 @@ class MonitoringCycleService:
     def _group_yolo_configurations_by_camera(
         configurations: list[ShelfConfiguration],
     ) -> dict[uuid.UUID, list[ShelfConfiguration]]:
-        grouped: dict[uuid.UUID, list[ShelfConfiguration]] = {}
+        grouped: dict[
+            uuid.UUID,
+            list[ShelfConfiguration],
+        ] = {}
 
         for configuration in configurations:
             if configuration.detector_type != "yolo":
@@ -262,5 +270,7 @@ class MonitoringCycleService:
 
         if alert is not None:
             self._notification_service.notify_low_stock(
-                alert,
+                alert=alert,
+                configuration=configuration,
+                observation=observation,
             )

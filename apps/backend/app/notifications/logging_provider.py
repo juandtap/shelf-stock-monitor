@@ -1,16 +1,28 @@
 from loguru import logger
 
-from app.db.models.stock_alert import StockAlert
+from app.notifications.models import LowStockNotification
 
 
 class LoggingNotificationProvider:
     def send_low_stock_alert(
         self,
-        alert: StockAlert,
+        notification: LowStockNotification,
     ) -> None:
         logger.warning(
-            ("Low stock notification | alert_id={} | stock_percentage={:.2f} | threshold={:.2f}"),
-            alert.id,
-            alert.stock_percentage,
-            alert.threshold_percentage,
+            (
+                "Low stock notification | "
+                "alert_id={} | "
+                "product={} | "
+                "camera={} | "
+                "units={}/{} | "
+                "stock_percentage={:.2f} | "
+                "threshold={:.2f}"
+            ),
+            notification.alert_id,
+            notification.product_name,
+            notification.camera_name,
+            notification.detected_units,
+            notification.shelf_capacity,
+            notification.stock_percentage,
+            notification.threshold_percentage,
         )

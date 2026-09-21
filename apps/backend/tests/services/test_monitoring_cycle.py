@@ -13,6 +13,7 @@ from app.db.models.camera import Camera
 from app.db.models.product import Product
 from app.db.models.shelf_configuration import ShelfConfiguration
 from app.db.models.stock_alert import StockAlert
+from app.notifications.models import LowStockNotification
 from app.repositories.model_class_mapping import ModelClassMappingRepository
 from app.services.monitoring_cycle import (
     InconsistentYOLOConfigurationError,
@@ -30,13 +31,13 @@ TEST_MODEL_KEY = "test-model"
 
 class FakeNotificationProvider:
     def __init__(self) -> None:
-        self.sent_alerts: list[StockAlert] = []
+        self.sent_notifications: list[LowStockNotification] = []
 
     def send_low_stock_alert(
         self,
-        alert: StockAlert,
+        notification: LowStockNotification,
     ) -> None:
-        self.sent_alerts.append(alert)
+        self.sent_notifications.append(notification)
 
 
 class FakeMulticlassDetector:
@@ -318,7 +319,7 @@ def test_cycle_processes_only_active_configurations(
     assert observation.shelf_capacity == 2
     assert observation.stock_percentage == 50.0
 
-    assert notification_provider.sent_alerts == []
+    assert notification_provider.sent_notifications == []
 
 
 def test_cycle_raises_when_active_camera_has_no_image(
@@ -405,8 +406,18 @@ def test_cycle_creates_low_stock_alert(
     assert alert.stock_percentage == 0.0
     assert alert.threshold_percentage == 50.0
 
-    assert len(notification_provider.sent_alerts) == 1
-    assert notification_provider.sent_alerts[0].id == alert.id
+    assert len(notification_provider.sent_notifications) == 1
+
+    notification = notification_provider.sent_notifications[0]
+
+    assert notification.alert_id == alert.id
+    assert notification.observation_id == observation.id
+    assert notification.product_name == configuration.product.name
+    assert notification.camera_name == configuration.camera.name
+    assert notification.detected_units == 0
+    assert notification.shelf_capacity == 2
+    assert notification.stock_percentage == 0.0
+    assert notification.threshold_percentage == 50.0
 
 
 def test_cycle_does_not_create_alert_at_threshold(
@@ -456,7 +467,7 @@ def test_cycle_does_not_create_alert_at_threshold(
     alert = db_session.scalar(statement)
 
     assert alert is None
-    assert notification_provider.sent_alerts == []
+    assert notification_provider.sent_notifications == []
 
 
 def test_cycle_runs_yolo_once_for_multiple_products(
@@ -560,13 +571,17 @@ def test_cycle_runs_yolo_once_for_multiple_products(
     assert water_observation.detected_units == 2
     assert water_observation.stock_percentage == 50.0
 
-    assert len(notification_provider.sent_alerts) == 1
+    assert len(notification_provider.sent_notifications) == 1
 
-    alert = notification_provider.sent_alerts[0]
+    notification = notification_provider.sent_notifications[0]
 
-    assert alert.stock_observation_id == water_observation.id
-    assert alert.stock_percentage == 50.0
-    assert alert.threshold_percentage == 60.0
+    assert notification.observation_id == water_observation.id
+    assert notification.product_name == "Water"
+    assert notification.camera_name == camera.name
+    assert notification.detected_units == 2
+    assert notification.shelf_capacity == 4
+    assert notification.stock_percentage == 50.0
+    assert notification.threshold_percentage == 60.0
 
 
 def test_cycle_rejects_inconsistent_yolo_configurations_before_inference(

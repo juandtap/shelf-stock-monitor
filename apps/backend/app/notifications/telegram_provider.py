@@ -1,6 +1,6 @@
 import httpx
 
-from app.db.models.stock_alert import StockAlert
+from app.notifications.models import LowStockNotification
 
 
 class TelegramNotificationProvider:
@@ -25,16 +25,18 @@ class TelegramNotificationProvider:
 
     def send_low_stock_alert(
         self,
-        alert: StockAlert,
+        notification: LowStockNotification,
     ) -> None:
         url = f"{self.API_BASE_URL}/bot{self._bot_token}/sendMessage"
 
         message = (
-            "⚠️ Low stock detected\n"
-            f"Stock: {alert.stock_percentage:.2f}%\n"
-            f"Threshold: {alert.threshold_percentage:.2f}%\n"
-            f"Observation: {alert.stock_observation_id}\n"
-            f"Alert: {alert.id}"
+            "⚠️ Low stock detected\n\n"
+            f"Product: {notification.product_name}\n"
+            f"Stock: {notification.stock_percentage:.2f}% "
+            f"({notification.detected_units}/"
+            f"{notification.shelf_capacity} units)\n"
+            f"Threshold: {notification.threshold_percentage:.2f}%\n"
+            f"Camera: {notification.camera_name}"
         )
 
         response = httpx.post(
