@@ -1,16 +1,15 @@
+import json
 from dataclasses import dataclass
 from pathlib import Path
 from time import perf_counter
+from typing import Any
 
 import cv2
 import mlflow
 import numpy as np
 
 from app.benchmarking.mlflow_tracker import MLflowBenchmarkTracker
-from app.benchmarking.models import (
-    BenchmarkResult,
-    BenchmarkSummary,
-)
+from app.benchmarking.models import BenchmarkResult, BenchmarkSummary
 from app.core.config import get_settings
 from app.vision.detector import StockDetector
 from app.vision.opencv_roi import OpenCVROIDetector
@@ -25,13 +24,15 @@ TEST_LABELS_DIRECTORY = PROJECT_ROOT / "data" / "yolo" / "labels" / "test"
 
 EMPTY_REFERENCE_PATH = PROJECT_ROOT / "data" / "synthetic" / "assets" / "shelf_2x4.png"
 
+OPENCV_CALIBRATION_PATH = (
+    PROJECT_ROOT / "artifacts" / "calibration" / "opencv_roi_synthetic_v1.json"
+)
+
 YOLO_MODEL_PATH = (
     PROJECT_ROOT / "artifacts" / "models" / "yolo" / "yolo11n-synthetic-v1" / "best.pt"
 )
 
 SHELF_CAPACITY = len(SYNTHETIC_SHELF_SLOTS)
-
-OPENCV_DIFFERENCE_THRESHOLD = 20.0
 
 YOLO_CONFIDENCE_THRESHOLD = 0.25
 YOLO_IOU_THRESHOLD = 0.70
@@ -49,9 +50,14 @@ class TestSample:
     expected_units: int
 
 
-def load_image(
-    path: Path,
-) -> np.ndarray:
+@dataclass(frozen=True)
+class OpenCVCalibration:
+    dataset: str
+    calibration_split: str
+    difference_threshold: float
+
+
+def load_image(path: Path) -> np.ndarray:
     image = cv2.imread(
         str(path),
         cv2.IMREAD_COLOR,
@@ -61,6 +67,47 @@ def load_image(
         raise ValueError(f"Unable to read image: {path}")
 
     return image
+
+
+def load_opencv_calibration() -> OpenCVCalibration:
+    if not OPENCV_CALIBRATION_PATH.is_file():
+        raise FileNotFoundError(f"OpenCV calibration not found: {OPENCV_CALIBRATION_PATH}")
+
+    raw_data: Any = json.loads(OPENCV_CALIBRATION_PATH.read_text(encoding="utf-8"))
+
+    if not isinstance(raw_data, dict):
+        raise ValueError("OpenCV calibration must contain a JSON object.")
+
+    dataset = raw_data.get("dataset")
+    calibration_split = raw_data.get("calibration_split")
+    threshold = raw_data.get("difference_threshold")
+
+    if not isinstance(dataset, str):
+        raise ValueError("Invalid calibration dataset.")
+
+    if not isinstance(
+        calibration_split,
+        str,
+    ):
+        raise ValueError("Invalid calibration split.")
+
+    if not isinstance(
+        threshold,
+        int | float,
+    ):
+        raise ValueError("Invalid calibration threshold.")
+
+    if dataset != "synthetic-v1":
+        raise ValueError(f"Unexpected calibration dataset: {dataset}")
+
+    if calibration_split != "val":
+        raise ValueError("OpenCV threshold must be calibrated using the validation split.")
+
+    return OpenCVCalibration(
+        dataset=dataset,
+        calibration_split=(calibration_split),
+        difference_threshold=float(threshold),
+    )
 
 
 def count_ground_truth_objects(
@@ -102,6 +149,9 @@ def validate_inputs() -> None:
     if not EMPTY_REFERENCE_PATH.is_file():
         raise FileNotFoundError(f"Empty shelf reference not found: {EMPTY_REFERENCE_PATH}")
 
+    if not OPENCV_CALIBRATION_PATH.is_file():
+        raise FileNotFoundError(f"OpenCV calibration not found: {OPENCV_CALIBRATION_PATH}")
+
     if not YOLO_MODEL_PATH.is_file():
         raise FileNotFoundError(f"Fine-tuned YOLO model not found: {YOLO_MODEL_PATH}")
 
@@ -112,7 +162,9 @@ def validate_inputs() -> None:
         raise FileNotFoundError(f"Test labels directory not found: {TEST_LABELS_DIRECTORY}")
 
 
-def create_opencv_detector() -> OpenCVROIDetector:
+def create_opencv_detector(
+    calibration: OpenCVCalibration,
+) -> OpenCVROIDetector:
     reference = load_image(EMPTY_REFERENCE_PATH)
 
     regions = [slot.to_region_of_interest() for slot in SYNTHETIC_SHELF_SLOTS]
@@ -120,7 +172,7 @@ def create_opencv_detector() -> OpenCVROIDetector:
     return OpenCVROIDetector(
         empty_reference=reference,
         regions=regions,
-        difference_threshold=(OPENCV_DIFFERENCE_THRESHOLD),
+        difference_threshold=(calibration.difference_threshold),
     )
 
 
@@ -200,8 +252,18 @@ def run_detector(
         units_mae=float(np.mean(units_errors)),
         stock_percentage_mae=float(np.mean(percentage_errors)),
         latency_mean_ms=float(np.mean(latencies)),
-        latency_p50_ms=float(np.percentile(latencies, 50)),
-        latency_p95_ms=float(np.percentile(latencies, 95)),
+        latency_p50_ms=float(
+            np.percentile(
+                latencies,
+                50,
+            )
+        ),
+        latency_p95_ms=float(
+            np.percentile(
+                latencies,
+                95,
+            )
+        ),
     )
 
     return results, summary
@@ -249,9 +311,9 @@ def log_benchmark(
         results=results,
         parameters={
             **parameters,
-            "benchmark_dataset": BENCHMARK_DATASET,
-            "shelf_capacity": SHELF_CAPACITY,
-            "warmup_iterations": WARMUP_ITERATIONS,
+            "benchmark_dataset": (BENCHMARK_DATASET),
+            "shelf_capacity": (SHELF_CAPACITY),
+            "warmup_iterations": (WARMUP_ITERATIONS),
         },
         run_name=run_name,
     )
@@ -272,18 +334,27 @@ def main() -> None:
 
     settings = get_settings()
 
+    calibration = load_opencv_calibration()
+
+    print()
+    print(f"OpenCV calibrated threshold: {calibration.difference_threshold:.4f}")
+    print(f"Calibration source: {calibration.dataset}/{calibration.calibration_split}")
+
     samples = load_test_samples()
 
     tracker = MLflowBenchmarkTracker(
-        tracking_uri=settings.mlflow_tracking_uri,
+        tracking_uri=(settings.mlflow_tracking_uri),
         experiment_name=(settings.mlflow_experiment_name),
     )
 
-    opencv_detector = create_opencv_detector()
+    opencv_detector = create_opencv_detector(calibration)
 
     yolo_detector = create_yolo_detector()
 
-    opencv_results, opencv_summary = run_detector(
+    (
+        opencv_results,
+        opencv_summary,
+    ) = run_detector(
         detector=opencv_detector,
         samples=samples,
     )
@@ -302,15 +373,21 @@ def main() -> None:
         exact_count_accuracy=(opencv_exact_accuracy),
         parameters={
             "detector": "opencv_roi",
-            "difference_threshold": (OPENCV_DIFFERENCE_THRESHOLD),
+            "difference_threshold": (calibration.difference_threshold),
+            "calibration_dataset": (calibration.dataset),
+            "calibration_split": (calibration.calibration_split),
+            "calibration_artifact": (OPENCV_CALIBRATION_PATH.name),
             "reference_image": (EMPTY_REFERENCE_PATH.name),
         },
-        run_name=("opencv-roi-synthetic-v1-common-test"),
+        run_name=("opencv-roi-calibrated-synthetic-v1-common-test"),
     )
 
     print(f"MLflow run ID: {opencv_run_id}")
 
-    yolo_results, yolo_summary = run_detector(
+    (
+        yolo_results,
+        yolo_summary,
+    ) = run_detector(
         detector=yolo_detector,
         samples=samples,
     )
