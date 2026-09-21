@@ -41,6 +41,7 @@ mlartifacts/
 data/raw/
 data/processed/
 data/generated/
+data/robustness/
 data/yolo/images/
 data/yolo/labels/
 data/yolo/diagnostics/

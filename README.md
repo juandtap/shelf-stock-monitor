@@ -1187,3 +1187,7 @@ curl -X POST \
 
 
 ```
+
+### Observaciones de los experimentos
+
+En condiciones visuales controladas, el detector ROI clásico igualó el conteo del modelo YOLO con una latencia sustancialmente menor. Sin embargo, su comparación absoluta contra una referencia fija fue sensible a cambios globales de iluminación, contraste, ruido y desenfoque, generando falsos positivos en todos los slots bajo las perturbaciones evaluadas.
