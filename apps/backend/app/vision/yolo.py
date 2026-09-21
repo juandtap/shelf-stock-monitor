@@ -1,3 +1,4 @@
+from collections import Counter
 from collections.abc import Sequence
 from typing import Protocol, cast
 
@@ -5,7 +6,10 @@ import numpy as np
 from ultralytics import YOLO  # type: ignore[attr-defined]
 
 from app.vision.detector import ImageArray
-from app.vision.models import StockDetectionResult
+from app.vision.models import (
+    ClassDetection,
+    StockDetectionResult,
+)
 
 
 class YOLOBoxes(Protocol):
@@ -111,13 +115,16 @@ class YOLOStockDetector:
             verbose=False,
         )
 
-        detected_units = self._count_detections(
+        class_detections = self._count_detections_by_class(
             results,
         )
+
+        detected_units = sum(detection.detected_units for detection in class_detections)
 
         return StockDetectionResult(
             detected_units=detected_units,
             detector_name=self.name,
+            class_detections=class_detections,
         )
 
     @staticmethod
@@ -135,10 +142,10 @@ class YOLOStockDetector:
             )
 
     @staticmethod
-    def _count_detections(
+    def _count_detections_by_class(
         results: Sequence[YOLOResult],
-    ) -> int:
-        detected_units = 0
+    ) -> tuple[ClassDetection, ...]:
+        class_counts: Counter[int] = Counter()
 
         for result in results:
             boxes = result.boxes
@@ -156,10 +163,24 @@ class YOLOStockDetector:
 
             class_array = np.asarray(
                 classes,
-            )
+            ).reshape(-1)
 
-            detected_units += int(
-                class_array.size,
-            )
+            for raw_class_id in class_array:
+                class_id = int(raw_class_id)
 
-        return detected_units
+                if class_id < 0:
+                    raise ValueError(
+                        "YOLO returned a negative class ID.",
+                    )
+
+                class_counts[class_id] += 1
+
+        return tuple(
+            ClassDetection(
+                class_id=class_id,
+                detected_units=detected_units,
+            )
+            for class_id, detected_units in sorted(
+                class_counts.items(),
+            )
+        )
