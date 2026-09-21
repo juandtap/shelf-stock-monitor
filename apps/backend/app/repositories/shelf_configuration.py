@@ -3,6 +3,7 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.db.models.camera import Camera
 from app.db.models.shelf_configuration import ShelfConfiguration
 from app.schemas.shelf_configuration import ShelfConfigurationCreate
 
@@ -73,6 +74,26 @@ class ShelfConfigurationRepository:
             select(ShelfConfiguration)
             .where(
                 ShelfConfiguration.is_active.is_(True),
+            )
+            .order_by(
+                ShelfConfiguration.created_at.desc(),
+            )
+        )
+
+        return list(self.db.scalars(statement).all())
+
+    def get_monitorable(
+        self,
+    ) -> list[ShelfConfiguration]:
+        statement = (
+            select(ShelfConfiguration)
+            .join(
+                Camera,
+                ShelfConfiguration.camera_id == Camera.id,
+            )
+            .where(
+                ShelfConfiguration.is_active.is_(True),
+                Camera.is_active.is_(True),
             )
             .order_by(
                 ShelfConfiguration.created_at.desc(),

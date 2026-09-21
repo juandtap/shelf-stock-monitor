@@ -64,7 +64,7 @@ class MonitoringCycleService:
         *,
         image_paths: Mapping[uuid.UUID, str],
     ) -> list[StockObservation]:
-        configurations = self._configuration_repository.get_active()
+        configurations = self._configuration_repository.get_monitorable()
 
         observations: list[StockObservation] = []
 

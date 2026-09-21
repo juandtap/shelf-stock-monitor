@@ -1,7 +1,7 @@
 import uuid
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, String
+from sqlalchemy import Boolean, CheckConstraint, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -14,6 +14,13 @@ if TYPE_CHECKING:
 
 class Camera(TimestampMixin, Base):
     __tablename__ = "cameras"
+
+    __table_args__ = (
+        CheckConstraint(
+            "source_type IN ('file')",
+            name="ck_cameras_source_type",
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
@@ -30,6 +37,18 @@ class Camera(TimestampMixin, Base):
 
     location: Mapped[str | None] = mapped_column(
         String(255),
+        nullable=True,
+    )
+
+    source_type: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+        default="file",
+        server_default="file",
+    )
+
+    source_uri: Mapped[str | None] = mapped_column(
+        String(1000),
         nullable=True,
     )
 

@@ -1,13 +1,24 @@
+import uuid
 from datetime import timedelta
 
 from loguru import logger
 
 from app.core.config import get_settings
+from app.db.models.camera import Camera
+from app.db.models.shelf_configuration import ShelfConfiguration
 from app.db.session import SessionLocal
 from app.notifications.factory import create_notification_provider
 from app.repositories.shelf_configuration import ShelfConfigurationRepository
 from app.services.monitoring_cycle import MonitoringCycleService
 from app.services.stock_alert import StockAlertPolicy
+
+
+class CameraSourceNotConfiguredError(Exception):
+    pass
+
+
+class UnsupportedCameraSourceError(Exception):
+    pass
 
 
 def run_monitoring_cycle() -> None:
@@ -19,28 +30,26 @@ def run_monitoring_cycle() -> None:
         with SessionLocal() as db:
             configuration_repository = ShelfConfigurationRepository(db)
 
-            active_configurations = configuration_repository.get_active()
+            configurations = configuration_repository.get_monitorable()
 
             logger.info(
-                "Active shelf configurations found | count={}",
-                len(active_configurations),
+                "Monitorable shelf configurations found | count={}",
+                len(configurations),
             )
 
-            if not active_configurations:
+            if not configurations:
                 logger.info(
-                    "Monitoring cycle skipped | reason=no_active_configurations",
+                    "Monitoring cycle skipped | reason=no_monitorable_configurations",
                 )
                 return
 
-            if settings.monitoring_image_path is None:
-                raise RuntimeError(
-                    "MONITORING_IMAGE_PATH is required when active shelf configurations exist."
-                )
+            cameras_by_id = _get_cameras_by_id(
+                configurations,
+            )
 
-            image_paths = {
-                configuration.camera_id: settings.monitoring_image_path
-                for configuration in active_configurations
-            }
+            image_paths = _build_image_paths(
+                cameras_by_id,
+            )
 
             alert_policy = StockAlertPolicy(
                 drop_percentage=settings.low_stock_drop_percentage,
@@ -89,3 +98,30 @@ def run_monitoring_cycle() -> None:
 
     except Exception:
         logger.exception("Monitoring cycle failed")
+
+
+def _get_cameras_by_id(
+    configurations: list[ShelfConfiguration],
+) -> dict[uuid.UUID, Camera]:
+    return {configuration.camera.id: configuration.camera for configuration in configurations}
+
+
+def _build_image_paths(
+    cameras_by_id: dict[uuid.UUID, Camera],
+) -> dict[uuid.UUID, str]:
+    image_paths: dict[uuid.UUID, str] = {}
+
+    for camera_id, camera in cameras_by_id.items():
+        if camera.source_type != "file":
+            raise UnsupportedCameraSourceError(
+                f"Unsupported camera source type '{camera.source_type}' for camera {camera.id}."
+            )
+
+        if camera.source_uri is None:
+            raise CameraSourceNotConfiguredError(
+                f"No source URI configured for camera {camera.id}."
+            )
+
+        image_paths[camera_id] = camera.source_uri
+
+    return image_paths
