@@ -80,3 +80,20 @@ class ShelfConfigurationRepository:
         )
 
         return list(self.db.scalars(statement).all())
+
+    def get_active_by_camera(
+        self,
+        camera_id: uuid.UUID,
+    ) -> list[ShelfConfiguration]:
+        statement = (
+            select(ShelfConfiguration)
+            .where(
+                ShelfConfiguration.camera_id == camera_id,
+                ShelfConfiguration.is_active.is_(True),
+            )
+            .order_by(
+                ShelfConfiguration.created_at.asc(),
+            )
+        )
+
+        return list(self.db.scalars(statement).all())

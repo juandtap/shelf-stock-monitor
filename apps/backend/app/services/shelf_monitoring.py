@@ -8,6 +8,7 @@ from app.db.models.shelf_configuration import ShelfConfiguration
 from app.db.models.stock_observation import StockObservation
 from app.services.stock_detection import StockDetectionService
 from app.vision.detector import ImageArray
+from app.vision.detector_factory import StockDetectorFactoryProtocol
 from app.vision.factory import StockDetectorFactory
 
 
@@ -23,7 +24,7 @@ class ShelfMonitoringService:
     def __init__(
         self,
         db: Session,
-        detector_factory: StockDetectorFactory | None = None,
+        detector_factory: StockDetectorFactoryProtocol | None = None,
     ) -> None:
         self._db = db
         self._detector_factory = detector_factory or StockDetectorFactory()
@@ -34,7 +35,9 @@ class ShelfMonitoringService:
         configuration: ShelfConfiguration,
         image_path: str,
     ) -> StockObservation:
-        image = self._load_image(image_path)
+        image = self.load_image(
+            image_path,
+        )
 
         detector = self._detector_factory.create(
             configuration,
@@ -53,11 +56,15 @@ class ShelfMonitoringService:
         )
 
     @staticmethod
-    def _load_image(image_path: str) -> ImageArray:
+    def load_image(
+        image_path: str,
+    ) -> ImageArray:
         path = Path(image_path)
 
         if not path.is_file():
-            raise CurrentImageNotFoundError(f"Current image not found: {path}")
+            raise CurrentImageNotFoundError(
+                f"Current image not found: {path}",
+            )
 
         image_raw = cv2.imread(
             str(path),
@@ -65,6 +72,11 @@ class ShelfMonitoringService:
         )
 
         if image_raw is None:
-            raise InvalidCurrentImageError(f"Unable to read current image: {path}")
+            raise InvalidCurrentImageError(
+                f"Unable to read current image: {path}",
+            )
 
-        return cast(ImageArray, image_raw)
+        return cast(
+            ImageArray,
+            image_raw,
+        )

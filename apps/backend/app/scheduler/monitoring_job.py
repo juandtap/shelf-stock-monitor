@@ -27,7 +27,9 @@ def run_monitoring_cycle() -> None:
             )
 
             if not active_configurations:
-                logger.info("Monitoring cycle skipped | reason=no_active_configurations")
+                logger.info(
+                    "Monitoring cycle skipped | reason=no_active_configurations",
+                )
                 return
 
             if settings.monitoring_image_path is None:
@@ -36,7 +38,7 @@ def run_monitoring_cycle() -> None:
                 )
 
             image_paths = {
-                configuration.id: settings.monitoring_image_path
+                configuration.camera_id: settings.monitoring_image_path
                 for configuration in active_configurations
             }
 

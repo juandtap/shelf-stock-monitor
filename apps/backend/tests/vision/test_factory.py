@@ -13,6 +13,8 @@ from app.vision.factory import (
 )
 from app.vision.opencv_roi import OpenCVROIDetector
 
+TEST_MODEL_KEY = "test-model"
+
 
 def create_opencv_configuration(
     reference_image_path: str,
@@ -45,6 +47,7 @@ def create_yolo_configuration() -> ShelfConfiguration:
         detector_type="yolo",
         reference_image_path=None,
         detector_config={
+            "model_key": TEST_MODEL_KEY,
             "model_path": "models/shelf-stock.pt",
             "confidence_threshold": 0.65,
             "iou_threshold": 0.45,
@@ -138,6 +141,7 @@ def test_factory_creates_yolo_detector_with_defaults() -> None:
         detector_type="yolo",
         reference_image_path=None,
         detector_config={
+            "model_key": TEST_MODEL_KEY,
             "model_path": "models/shelf-stock.pt",
         },
     )

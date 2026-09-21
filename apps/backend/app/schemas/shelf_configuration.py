@@ -21,6 +21,11 @@ class OpenCVROIConfiguration(BaseModel):
 
 
 class YOLOConfiguration(BaseModel):
+    model_key: str = Field(
+        min_length=1,
+        max_length=150,
+    )
+
     model_path: str = Field(
         min_length=1,
         max_length=500,
