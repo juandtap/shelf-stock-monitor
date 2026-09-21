@@ -35,6 +35,25 @@ class ShelfConfigurationRepository:
 
         return configuration
 
+    def update(
+        self,
+        configuration: ShelfConfiguration,
+        configuration_data: ShelfConfigurationCreate,
+        *,
+        is_active: bool,
+    ) -> ShelfConfiguration:
+        configuration.detector_type = configuration_data.detector_type
+        configuration.reference_image_path = configuration_data.reference_image_path
+        configuration.detector_config = configuration_data.detector_config.model_dump()
+        configuration.shelf_capacity = configuration_data.shelf_capacity
+        configuration.low_stock_threshold = configuration_data.low_stock_threshold
+        configuration.is_active = is_active
+
+        self.db.commit()
+        self.db.refresh(configuration)
+
+        return configuration
+
     def get_by_id(
         self,
         configuration_id: uuid.UUID,

@@ -145,6 +145,37 @@ class ShelfConfigurationCreate(BaseModel):
         return self
 
 
+class ShelfConfigurationUpdate(BaseModel):
+    detector_type: (
+        Literal[
+            "opencv_roi",
+            "yolo",
+        ]
+        | None
+    ) = None
+
+    reference_image_path: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=500,
+    )
+
+    detector_config: DetectorConfiguration | None = None
+
+    shelf_capacity: int | None = Field(
+        default=None,
+        gt=0,
+    )
+
+    low_stock_threshold: float | None = Field(
+        default=None,
+        ge=0,
+        le=100,
+    )
+
+    is_active: bool | None = None
+
+
 class ShelfConfigurationResponse(BaseModel):
     model_config = ConfigDict(
         from_attributes=True,
