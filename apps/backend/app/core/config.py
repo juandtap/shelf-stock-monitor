@@ -19,6 +19,11 @@ class Settings(BaseSettings):
     database_user: str
     database_password: SecretStr
 
+    logging_file_enabled: bool = True
+    logging_file_path: str = "logs/backend.log"
+    logging_rotation: str = "10 MB"
+    logging_retention: str = "14 days"
+
     monitoring_enabled: bool = False
     monitoring_interval_minutes: int = Field(
         default=30,
