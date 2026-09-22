@@ -6,7 +6,7 @@ from loguru import logger
 from sqlalchemy.orm import Session
 
 from app.db.models.shelf_configuration import ShelfConfiguration
-from app.db.models.stock_alert import StockAlert
+from app.db.models.stock_alert import StockAlert, StockAlertReason
 from app.db.models.stock_observation import StockObservation
 from app.repositories.stock_alert import StockAlertRepository
 
@@ -140,12 +140,13 @@ class StockAlertService:
         *,
         configuration: ShelfConfiguration,
         observation: StockObservation,
-        reason: str,
+        reason: StockAlertReason,
     ) -> StockAlert:
         alert = self._repository.create(
             stock_observation_id=observation.id,
             stock_percentage=observation.stock_percentage,
             threshold_percentage=configuration.low_stock_threshold,
+            reason=reason,
         )
 
         logger.warning(
@@ -158,7 +159,7 @@ class StockAlertService:
                 "threshold={:.2f} | "
                 "alert_id={}"
             ),
-            reason,
+            alert.reason,
             configuration.id,
             observation.id,
             observation.stock_percentage,

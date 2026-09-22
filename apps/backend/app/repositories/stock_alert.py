@@ -3,7 +3,7 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.models.stock_alert import StockAlert
+from app.db.models.stock_alert import StockAlert, StockAlertReason
 from app.db.models.stock_observation import StockObservation
 
 
@@ -20,11 +20,13 @@ class StockAlertRepository:
         stock_observation_id: uuid.UUID,
         stock_percentage: float,
         threshold_percentage: float,
+        reason: StockAlertReason,
     ) -> StockAlert:
         alert = StockAlert(
             stock_observation_id=stock_observation_id,
             stock_percentage=stock_percentage,
             threshold_percentage=threshold_percentage,
+            reason=reason,
         )
 
         self._db.add(alert)

@@ -1,6 +1,15 @@
 import httpx
 
+from app.db.models.stock_alert import StockAlertReason
 from app.notifications.models import LowStockNotification
+
+_REASON_LABELS: dict[StockAlertReason, str] = {
+    "legacy_low_stock": "Legacy low stock alert",
+    "initial_low_stock": "Initial low stock",
+    "entered_low_stock": "Entered low stock",
+    "significant_stock_drop": "Significant stock drop",
+    "low_stock_reminder": "Low stock reminder",
+}
 
 
 class TelegramNotificationProvider:
@@ -29,6 +38,8 @@ class TelegramNotificationProvider:
     ) -> None:
         url = f"{self.API_BASE_URL}/bot{self._bot_token}/sendMessage"
 
+        reason_label = _REASON_LABELS[notification.reason]
+
         message = (
             "⚠️ Low stock detected\n\n"
             f"Product: {notification.product_name}\n"
@@ -36,7 +47,8 @@ class TelegramNotificationProvider:
             f"({notification.detected_units}/"
             f"{notification.shelf_capacity} units)\n"
             f"Threshold: {notification.threshold_percentage:.2f}%\n"
-            f"Camera: {notification.camera_name}"
+            f"Camera: {notification.camera_name}\n"
+            f"Reason: {reason_label}"
         )
 
         response = httpx.post(

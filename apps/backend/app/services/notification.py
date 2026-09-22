@@ -28,6 +28,7 @@ class NotificationService:
             shelf_capacity=observation.shelf_capacity,
             stock_percentage=observation.stock_percentage,
             threshold_percentage=configuration.low_stock_threshold,
+            reason=alert.reason,
         )
 
         self._provider.send_low_stock_alert(

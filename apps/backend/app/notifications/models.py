@@ -1,6 +1,8 @@
 import uuid
 from dataclasses import dataclass
 
+from app.db.models.stock_alert import StockAlertReason
+
 
 @dataclass(frozen=True, slots=True)
 class LowStockNotification:
@@ -14,3 +16,4 @@ class LowStockNotification:
     shelf_capacity: int
     stock_percentage: float
     threshold_percentage: float
+    reason: StockAlertReason

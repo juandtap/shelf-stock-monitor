@@ -15,6 +15,7 @@ def create_notification() -> LowStockNotification:
         shelf_capacity=4,
         stock_percentage=25.0,
         threshold_percentage=50.0,
+        reason="significant_stock_drop",
     )
 
 
@@ -52,6 +53,7 @@ def test_sends_low_stock_alert(
     assert "25.00%" in message
     assert "1/4 units" in message
     assert "50.00%" in message
+    assert "Reason: Significant stock drop" in message
 
     assert call.kwargs["timeout"] == 10.0
 

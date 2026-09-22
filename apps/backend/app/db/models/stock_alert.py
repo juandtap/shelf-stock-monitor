@@ -1,12 +1,21 @@
 import uuid
+from typing import Literal
 
-from sqlalchemy import CheckConstraint, Float, ForeignKey
+from sqlalchemy import CheckConstraint, Float, ForeignKey, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 from app.db.models.mixins import TimestampMixin
 from app.db.models.stock_observation import StockObservation
+
+StockAlertReason = Literal[
+    "legacy_low_stock",
+    "initial_low_stock",
+    "entered_low_stock",
+    "significant_stock_drop",
+    "low_stock_reminder",
+]
 
 
 class StockAlert(TimestampMixin, Base):
@@ -20,6 +29,16 @@ class StockAlert(TimestampMixin, Base):
         CheckConstraint(
             "threshold_percentage >= 0 AND threshold_percentage <= 100",
             name="ck_stock_alerts_threshold_percentage",
+        ),
+        CheckConstraint(
+            "reason IN ("
+            "'legacy_low_stock', "
+            "'initial_low_stock', "
+            "'entered_low_stock', "
+            "'significant_stock_drop', "
+            "'low_stock_reminder'"
+            ")",
+            name="ck_stock_alerts_reason",
         ),
     )
 
@@ -47,6 +66,11 @@ class StockAlert(TimestampMixin, Base):
 
     threshold_percentage: Mapped[float] = mapped_column(
         Float,
+        nullable=False,
+    )
+
+    reason: Mapped[StockAlertReason] = mapped_column(
+        String(length=50),
         nullable=False,
     )
 
