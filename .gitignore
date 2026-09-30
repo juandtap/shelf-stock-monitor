@@ -50,9 +50,6 @@ data/yolo/runs/
 
 # Demo images tracked by Git
 !data/demo/
-!data/demo/shelf_0270.jpg
-!data/demo/shelf_0281.jpg
-
 
 # Generated ML artifacts
 artifacts/*

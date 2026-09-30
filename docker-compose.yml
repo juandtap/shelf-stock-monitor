@@ -26,6 +26,34 @@ services:
       timeout: 5s
       retries: 5
 
+  migrations:
+    build:
+      context: .
+      dockerfile: docker/backend/Dockerfile
+
+    container_name: shelf-stock-migrations
+    restart: "no"
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    env_file:
+      - ./apps/backend/.env
+
+    environment:
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+
+    command:
+      [
+        "uv",
+        "run",
+        "alembic",
+        "upgrade",
+        "head"
+      ]
+
   backend:
     build:
       context: .
@@ -37,6 +65,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      migrations:
+        condition: service_completed_successfully
 
     env_file:
       - ./apps/backend/.env

@@ -4,7 +4,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     UV_LINK_MODE=copy
 
-WORKDIR /app
+WORKDIR /app/apps/backend
 
 RUN apt-get update \
     && apt-get install --no-install-recommends -y curl \
