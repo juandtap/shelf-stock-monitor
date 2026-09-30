@@ -48,10 +48,26 @@ data/yolo/diagnostics/
 data/yolo/dataset.yaml
 data/yolo/runs/
 
+# Demo images tracked by Git
+!data/demo/
+!data/demo/shelf_0270.jpg
+!data/demo/shelf_0281.jpg
+
+
 # Generated ML artifacts
-artifacts/
+artifacts/*
+!artifacts/models/
+artifacts/models/*
+!artifacts/models/yolo/
+artifacts/models/yolo/*
+!artifacts/models/yolo/yolo11n-synthetic-v1/
+artifacts/models/yolo/yolo11n-synthetic-v1/*
+!artifacts/models/yolo/yolo11n-synthetic-v1/best.pt
 
 # Models / weights
 *.pt
 *.pth
 *.onnx
+
+# Allow the deployment YOLO model
+!artifacts/models/yolo/yolo11n-synthetic-v1/best.pt

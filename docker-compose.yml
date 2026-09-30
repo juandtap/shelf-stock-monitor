@@ -26,5 +26,35 @@ services:
       timeout: 5s
       retries: 5
 
+  backend:
+    build:
+      context: .
+      dockerfile: docker/backend/Dockerfile
+
+    container_name: shelf-stock-backend
+    restart: unless-stopped
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    env_file:
+      - ./apps/backend/.env
+
+    environment:
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      LOGGING_FILE_PATH: /app/logs/backend.log
+      MLFLOW_TRACKING_URI: sqlite:////app/artifacts/mlflow/mlflow.db
+
+    ports:
+      - "${BACKEND_PORT}:8000"
+
+    volumes:
+      - ./artifacts:/app/artifacts
+      - ./data:/app/data:ro
+      - backend_logs:/app/logs
+
 volumes:
   postgres_data:
+  backend_logs:
